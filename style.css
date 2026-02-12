@@ -447,6 +447,26 @@ transform: scale(0.98);
   height: 60px;
 }
 
+/* --- MESSAGE VARIANTS --- */
+.wp-messages {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.wp-msg-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.wp-msg-count {
+  font-size: 10px;
+  color: var(--wp-text-sec);
+  margin-left: auto;
+}
+
 /* --- ETİKET BUTONLARI --- */
 .wp-tag-container {
   display: flex;
@@ -472,6 +492,26 @@ transform: scale(0.98);
   color: #ffffff;
   box-shadow: 0 2px 6px rgba(0, 0, 0, .2);
   transform: translateY(-0.5px);
+}
+
+/* --- RADIO GROUP --- */
+.wp-radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.wp-radio-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--wp-text-main);
+  cursor: pointer;
+}
+
+.wp-radio-option input[type="radio"] {
+  accent-color: var(--wp-primary);
 }
 
 /* --- GRIDLER --- */

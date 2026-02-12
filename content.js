@@ -7,7 +7,8 @@ let isRunning = false;
 
 const DEFAULT_SETTINGS = {
   sendButtonSelector: 'span[data-icon="wds-ic-send-filled"]',
-  blurChat: false
+  blurChat: false,
+  onlyNewContacts: false
 };
 
 let userSettings = { ...DEFAULT_SETTINGS };
@@ -176,7 +177,14 @@ function injectPanel() {
             <button class="wp-tag-btn" data-ins="{{FirstName}}">First Name</button>
             <button class="wp-tag-btn" data-ins="{{LastName}}">Last Name</button>
           </div>
-          <textarea id="wp-msg" class="wp-textarea" placeholder="Write the message to send..."></textarea>
+          <div id="wp-messages" class="wp-messages">
+            <textarea id="wp-msg-1" class="wp-textarea wp-msg-input" placeholder="Write message 1..."></textarea>
+          </div>
+          <div class="wp-msg-actions">
+            <button type="button" id="wp-add-msg" class="wp-settings-btn">Add Message</button>
+            <button type="button" id="wp-remove-msg" class="wp-settings-btn wp-settings-btn-secondary">Remove Last</button>
+            <span class="wp-msg-count" id="wp-msg-count">1 / 10</span>
+          </div>
         </section>
 
         <!-- Step 4: Timing -->
@@ -198,6 +206,28 @@ function injectPanel() {
               <label class="wp-label-small">Maximum (sec)</label>
               <input type="number" id="wp-max" min="7" max="20" value="7" class="wp-input" />
             </div>
+          </div>
+        </section>
+
+        <!-- Step 5: Send Mode -->
+        <section class="wp-card">
+          <div class="wp-card-head">
+            <div class="wp-card-head-left">
+              <span class="wp-card-title">Send Mode</span>
+              <span class="wp-card-sub">Choose who receives messages</span>
+            </div>
+            <span class="wp-step-pill">5</span>
+          </div>
+
+          <div class="wp-radio-group" id="wp-send-mode">
+            <label class="wp-radio-option">
+              <input type="radio" name="wp-send-mode" value="all" />
+              <span>All contacts</span>
+            </label>
+            <label class="wp-radio-option">
+              <input type="radio" name="wp-send-mode" value="new-only" />
+              <span>Only new contacts (skip existing chats)</span>
+            </label>
           </div>
         </section>
 
@@ -360,7 +390,52 @@ function setupEvents() {
   const tagSelect = document.getElementById("wp-tag-select");
   const startBtn = document.getElementById("wp-start");
   const stopBtn = document.getElementById("wp-stop");
-  const msgInput = document.getElementById("wp-msg");
+  const messagesContainer = document.getElementById("wp-messages");
+  const addMsgBtn = document.getElementById("wp-add-msg");
+  const removeMsgBtn = document.getElementById("wp-remove-msg");
+  const msgCountEl = document.getElementById("wp-msg-count");
+
+  let activeMsgInput = null;
+  const MAX_MESSAGES = 10;
+
+  const attachMsgInputEvents = (input) => {
+    input.addEventListener("focus", () => {
+      activeMsgInput = input;
+    });
+  };
+
+  const getMsgInputs = () =>
+    Array.from(document.querySelectorAll(".wp-msg-input"));
+
+  const updateMsgCount = () => {
+    const count = getMsgInputs().length;
+    if (msgCountEl) msgCountEl.innerText = `${count} / ${MAX_MESSAGES}`;
+    if (addMsgBtn) addMsgBtn.disabled = count >= MAX_MESSAGES;
+    if (removeMsgBtn) removeMsgBtn.disabled = count <= 1;
+  };
+
+  const createMessageInput = (index) => {
+    const textarea = document.createElement("textarea");
+    textarea.className = "wp-textarea wp-msg-input";
+    textarea.placeholder = `Write message ${index}...`;
+    attachMsgInputEvents(textarea);
+    return textarea;
+  };
+
+  const ensureActiveMsgInput = () => {
+    if (activeMsgInput) return activeMsgInput;
+    const inputs = getMsgInputs();
+    if (inputs.length > 0) {
+      activeMsgInput = inputs[0];
+    }
+    return activeMsgInput;
+  };
+
+  const getMessageTemplates = () =>
+    getMsgInputs()
+      .map((el) => (el.value || "").trim())
+      .filter((val) => val.length > 0)
+      .slice(0, MAX_MESSAGES);
 
   // Settings panel elements
   const settingsToggle = document.getElementById("wp-settings-toggle");
@@ -371,6 +446,7 @@ function setupEvents() {
 
   // Privacy checkbox (inside Advanced Settings)
   const blurChatCb = document.getElementById("wp-blur-chat");
+  const sendModeRadios = document.querySelectorAll('input[name="wp-send-mode"]');
 
   if (blurChatCb) {
     blurChatCb.checked = userSettings.blurChat || false;
@@ -380,6 +456,50 @@ function setupEvents() {
       applyPrivacyFilters();
     };
   }
+
+  if (sendModeRadios && sendModeRadios.length > 0) {
+    const currentMode = userSettings.onlyNewContacts ? "new-only" : "all";
+    sendModeRadios.forEach((radio) => {
+      radio.checked = radio.value === currentMode;
+      radio.onchange = (e) => {
+        userSettings.onlyNewContacts = e.target.value === "new-only";
+        saveSettings();
+      };
+    });
+  }
+
+  // Initialize message inputs
+  if (messagesContainer) {
+    const initialInput = messagesContainer.querySelector(".wp-msg-input");
+    if (initialInput) attachMsgInputEvents(initialInput);
+  }
+
+  if (addMsgBtn && messagesContainer) {
+    addMsgBtn.onclick = (e) => {
+      e.stopPropagation();
+      const inputs = getMsgInputs();
+      if (inputs.length >= MAX_MESSAGES) return;
+      const textarea = createMessageInput(inputs.length + 1);
+      messagesContainer.appendChild(textarea);
+      updateMsgCount();
+      textarea.focus();
+    };
+  }
+
+  if (removeMsgBtn && messagesContainer) {
+    removeMsgBtn.onclick = (e) => {
+      e.stopPropagation();
+      const inputs = getMsgInputs();
+      if (inputs.length <= 1) return;
+      const last = inputs[inputs.length - 1];
+      if (last) last.remove();
+      updateMsgCount();
+      const remaining = getMsgInputs();
+      activeMsgInput = remaining[remaining.length - 1] || null;
+    };
+  }
+
+  updateMsgCount();
 
   // Write the default value into the selector input
   if (sendSelectorInput) {
@@ -527,13 +647,15 @@ function setupEvents() {
       e.stopPropagation();
       const ins = btn.getAttribute("data-ins") || "";
       const toInsert = ins + " ";
-      msgInput.setRangeText(
+      const target = ensureActiveMsgInput();
+      if (!target) return;
+      target.setRangeText(
         toInsert,
-        msgInput.selectionStart,
-        msgInput.selectionEnd,
+        target.selectionStart,
+        target.selectionEnd,
         "end"
       );
-      msgInput.focus();
+      target.focus();
     };
   });
 
@@ -547,10 +669,10 @@ function setupEvents() {
     }
 
     const tag = tagSelect.value;
-    const msg = msgInput.value;
+    const messages = getMessageTemplates();
 
-    if (!tag || !msg) {
-      alert("Tag and message are required!");
+    if (!tag || messages.length === 0) {
+      alert("Tag and at least one message are required!");
       return;
     }
 
@@ -567,7 +689,7 @@ function setupEvents() {
       p.classList.add("minimized");
     }
 
-    startSendingProcess(queue, msg);
+    startSendingProcess(queue, messages);
   };
 
   // STOP
@@ -581,7 +703,7 @@ function setupEvents() {
 
 /* ==== Sending Engine ==== */
 
-async function startSendingProcess(queue, msgTemplate) {
+async function startSendingProcess(queue, msgTemplates) {
   isRunning = true;
   toggleButtons(true);
 
@@ -598,26 +720,15 @@ async function startSendingProcess(queue, msgTemplate) {
     if (!isRunning) break;
 
     const person = queue[i];
-
-    let text = msgTemplate
-      // Turkish placeholders (backward compatible)
-      .replace(/{{Ad}}/g, person.ad)
-      .replace(/{{Soyad}}/g, person.soyad)
-      .replace(/{{Hitap}}/g, person.hitap || "")
-      // English placeholders
-      .replace(/{{FirstName}}/g, person.ad)
-      .replace(/{{LastName}}/g, person.soyad)
-      .replace(/{{Salutation}}/g, person.hitap || "");
-
-    setStatus(`Sending (${i + 1}/${queue.length}): ${person.ad}`);
-
-    const url = `https://web.whatsapp.com/send?phone=${encodeURIComponent(
+    const baseUrl = `https://web.whatsapp.com/send?phone=${encodeURIComponent(
       person.phone
-    )}&text=${encodeURIComponent(text)}`;
+    )}`;
+
+    setStatus(`Preparing (${i + 1}/${queue.length}): ${person.ad}`);
 
     // Simulate link click
     const link = document.createElement("a");
-    link.href = url;
+    link.href = baseUrl;
     link.style.display = "none";
     document.body.appendChild(link);
     link.click();
@@ -629,15 +740,57 @@ async function startSendingProcess(queue, msgTemplate) {
     try {
       const selector =
         userSettings.sendButtonSelector || DEFAULT_SETTINGS.sendButtonSelector;
-      const sendBtn = await waitForElement(selector, 10000);
 
-      if (sendBtn && isRunning) {
-        sendBtn.click();
-        sentCount++;
-        setStatus(`✅ ${i + 1}/${queue.length} - ${person.ad}`);
-      } else {
-        setStatus(`❌ Button not found: ${person.ad}`);
-        console.warn("Send button not found for:", person.ad);
+      let skip = false;
+
+      if (userSettings.onlyNewContacts) {
+        setStatus(`Checking history (${i + 1}/${queue.length}): ${person.ad}`);
+        const hasHistory = hasExistingMessages();
+        if (hasHistory) {
+          skip = true;
+          setStatus(`⏭ Skipped (existing chat): ${person.ad}`);
+        }
+      }
+
+      if (!skip && isRunning) {
+        const chosenTemplate = pickRandomTemplate(msgTemplates);
+        let text = chosenTemplate
+          // Turkish placeholders (backward compatible)
+          .replace(/{{Ad}}/g, person.ad)
+          .replace(/{{Soyad}}/g, person.soyad)
+          .replace(/{{Hitap}}/g, person.hitap || "")
+          // English placeholders
+          .replace(/{{FirstName}}/g, person.ad)
+          .replace(/{{LastName}}/g, person.soyad)
+          .replace(/{{Salutation}}/g, person.hitap || "");
+
+        let sendBtn = null;
+        const msgInput = await waitForMessageInput(10000);
+        if (msgInput) {
+          setMessageInputText(msgInput, text);
+          await sleep(200);
+          sendBtn = await waitForElement(selector, 10000);
+        } else {
+          // Fallback: prefill via URL if input not found
+          const urlWithText = `${baseUrl}&text=${encodeURIComponent(text)}`;
+          const fallbackLink = document.createElement("a");
+          fallbackLink.href = urlWithText;
+          fallbackLink.style.display = "none";
+          document.body.appendChild(fallbackLink);
+          fallbackLink.click();
+          document.body.removeChild(fallbackLink);
+          await sleep(4000);
+          sendBtn = await waitForElement(selector, 10000);
+        }
+
+        if (sendBtn && isRunning) {
+          sendBtn.click();
+          sentCount++;
+          setStatus(`✅ ${i + 1}/${queue.length} - ${person.ad}`);
+        } else {
+          setStatus(`❌ Button not found: ${person.ad}`);
+          console.warn("Send button not found for:", person.ad);
+        }
       }
     } catch (e) {
       console.error("Error clicking send button:", e);
@@ -666,6 +819,74 @@ async function startSendingProcess(queue, msgTemplate) {
 
 /* ==== Helpers ==== */
 
+function pickRandomTemplate(templates) {
+  if (!Array.isArray(templates) || templates.length === 0) return "";
+  if (templates.length === 1) return templates[0];
+  const idx = Math.floor(Math.random() * templates.length);
+  return templates[idx];
+}
+
+function getMessageInput() {
+  return (
+    document.querySelector('#main footer div[contenteditable="true"]') ||
+    document.querySelector('div[contenteditable="true"][data-tab="10"]') ||
+    document.querySelector('div[contenteditable="true"][data-tab="6"]') ||
+    document.querySelector('div[contenteditable="true"][role="textbox"]')
+  );
+}
+
+function waitForMessageInput(timeout) {
+  return new Promise((resolve) => {
+    const elNow = getMessageInput();
+    if (elNow) return resolve(elNow);
+
+    const observer = new MutationObserver(() => {
+      const el = getMessageInput();
+      if (el) {
+        observer.disconnect();
+        resolve(el);
+      }
+    });
+
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    setTimeout(() => {
+      observer.disconnect();
+      resolve(null);
+    }, timeout);
+  });
+}
+
+function setMessageInputText(input, text) {
+  if (!input) return;
+  input.focus();
+  input.textContent = "";
+  let inserted = false;
+  if (document.execCommand) {
+    inserted = document.execCommand("insertText", false, text);
+  }
+  if (!inserted) {
+    input.textContent = text;
+    const evt =
+      typeof InputEvent === "function"
+        ? new InputEvent("input", { bubbles: true })
+        : new Event("input", { bubbles: true });
+    input.dispatchEvent(evt);
+  }
+}
+
+function hasExistingMessages() {
+  const main = document.getElementById("main");
+  if (!main) return false;
+  const selectors = [
+    "[data-pre-plain-text]",
+    ".message-in",
+    ".message-out",
+    '[data-testid="msg-container"]'
+  ];
+  return selectors.some((sel) => main.querySelector(sel));
+}
+
 function setStatus(msg) {
   const headerStatus = document.getElementById("wp-status");
   const detailStatus = document.getElementById("wp-status-detail");
@@ -676,6 +897,8 @@ function setStatus(msg) {
   if (detailStatus) detailStatus.innerText = msg;
 
   const isActive =
+    msg.includes("Preparing") ||
+    msg.includes("Checking") ||
     msg.includes("Sending") ||
     msg.includes("Waiting") ||
     msg.includes("Break");
