@@ -713,6 +713,18 @@ body.wp-blur-chats #pane-side div[role="row"]:hover {
   opacity: 1;
 }
 
+/* Blur active chat content (right pane) */
+body.wp-blur-chat-content #main {
+  filter: blur(6px) grayscale(20%);
+  transition: filter 0.3s ease;
+  opacity: 0.85;
+}
+
+body.wp-blur-chat-content #main:hover {
+  filter: none !important;
+  opacity: 1;
+}
+
 /* --- QUICK HEADER BUTTON (Toggle) --- */
 .wp-header-btn {
   display: inline-flex;

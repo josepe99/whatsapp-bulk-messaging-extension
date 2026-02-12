@@ -9,7 +9,7 @@ This extension lets you send automated, personalized bulk messages to contacts i
 - **Excel Bulk Sending**: Upload contact lists in `.xlsx` format.
 - **Personalized Messages**: Use `{FirstName}`, `{LastName}`, and `{Salutation}` to create unique messages for each person. (Turkish placeholders `{Ad}`, `{Soyad}`, `{Hitap}` are also supported.)
 - **Tag Filtering**: Send messages based on tags in the Excel file.
-- **Privacy Mode**: Blur your chat list (names, messages, photos) with one click. Ideal for taking screenshots or working in public.
+- **Privacy Mode**: Blur your chat list and/or the active chat content with one click. Ideal for taking screenshots or working in public.
 - **Quick Access**: Toggle privacy mode instantly by clicking the **Eye icon** in the WhatsApp header (next to the New Chat button).
 - **Native UI**: A modern design that matches WhatsApp Web's Light/Dark themes.
 - **Smart Delays**: Random waits between messages to reduce spam detection risk.
@@ -52,7 +52,9 @@ Turkish headers are also supported:
 ### ⚙️ Settings
 
 Under **Advanced Settings**:
-- **Chat Privacy (Blur)**: When checked, the chat list on the left (names and previews) is blurred. It becomes clear on hover.
+- **Privacy Mode (Blur)**: Master toggle for privacy mode. You can also toggle it from the eye icon in the WhatsApp header.
+- **Blur chat list**: Blurs the left chat list (names, previews, photos). It becomes clear on hover.
+- **Blur chat content**: Blurs the active chat (texts, images, audio, documents). It becomes clear on hover.
 
 ## ⚠️ Warning
 

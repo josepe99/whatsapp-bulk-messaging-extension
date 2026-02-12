@@ -7,7 +7,11 @@ let isRunning = false;
 
 const DEFAULT_SETTINGS = {
   sendButtonSelector: 'span[data-icon="wds-ic-send-filled"]',
+  // Master privacy mode
   blurChat: false,
+  // What to blur when privacy mode is ON
+  blurChatList: true,
+  blurChatContent: false,
   onlyNewContacts: false
 };
 
@@ -247,11 +251,25 @@ function injectPanel() {
             <div class="wp-settings-grid-single">
               
               <!-- Chat Privacy -->
-              <div class="wp-settings-item" style="margin-bottom: 6px;">
-                 <label style="display:flex; align-items:center; gap:6px; font-size:11px; color:var(--wp-text-main); cursor:pointer;">
-                   <input type="checkbox" id="wp-blur-chat" />
-                   Chat Privacy (Blur)
-                 </label>
+              <div class="wp-settings-item" style="grid-column: span 2; margin-bottom: 4px;">
+                <label style="display:flex; align-items:center; gap:6px; font-size:11px; color:var(--wp-text-main); cursor:pointer;">
+                  <input type="checkbox" id="wp-blur-chat" />
+                  Privacy Mode (Blur)
+                </label>
+              </div>
+
+              <div class="wp-settings-item">
+                <label style="display:flex; align-items:center; gap:6px; font-size:10px; color:var(--wp-text-main); cursor:pointer;">
+                  <input type="checkbox" id="wp-blur-chat-list" />
+                  Blur chat list
+                </label>
+              </div>
+
+              <div class="wp-settings-item">
+                <label style="display:flex; align-items:center; gap:6px; font-size:10px; color:var(--wp-text-main); cursor:pointer;">
+                  <input type="checkbox" id="wp-blur-chat-content" />
+                  Blur chat content
+                </label>
               </div>
 
               <div class="wp-settings-item">
@@ -331,7 +349,7 @@ function injectHeaderButton() {
   const btn = document.createElement("button");
   btn.id = "wp-header-toggle-btn";
   btn.className = "wp-header-btn";
-  btn.title = "Chat Privacy (Blur)";
+  btn.title = "Privacy Mode (Blur)";
   // Margin to match the WA header style
   btn.style.marginRight = "10px";
 
@@ -370,11 +388,15 @@ function updateHeaderButtonState() {
 }
 
 function applyPrivacyFilters() {
-  if (userSettings.blurChat) {
-    document.body.classList.add("wp-blur-chats");
-  } else {
-    document.body.classList.remove("wp-blur-chats");
-  }
+  const privacyOn = !!userSettings.blurChat;
+  document.body.classList.toggle(
+    "wp-blur-chats",
+    privacyOn && !!userSettings.blurChatList
+  );
+  document.body.classList.toggle(
+    "wp-blur-chat-content",
+    privacyOn && !!userSettings.blurChatContent
+  );
   updateHeaderButtonState();
 }
 
@@ -446,12 +468,32 @@ function setupEvents() {
 
   // Privacy checkbox (inside Advanced Settings)
   const blurChatCb = document.getElementById("wp-blur-chat");
+  const blurChatListCb = document.getElementById("wp-blur-chat-list");
+  const blurChatContentCb = document.getElementById("wp-blur-chat-content");
   const sendModeRadios = document.querySelectorAll('input[name="wp-send-mode"]');
 
   if (blurChatCb) {
     blurChatCb.checked = userSettings.blurChat || false;
     blurChatCb.onchange = (e) => {
       userSettings.blurChat = e.target.checked;
+      saveSettings();
+      applyPrivacyFilters();
+    };
+  }
+
+  if (blurChatListCb) {
+    blurChatListCb.checked = userSettings.blurChatList !== false;
+    blurChatListCb.onchange = (e) => {
+      userSettings.blurChatList = e.target.checked;
+      saveSettings();
+      applyPrivacyFilters();
+    };
+  }
+
+  if (blurChatContentCb) {
+    blurChatContentCb.checked = userSettings.blurChatContent || false;
+    blurChatContentCb.onchange = (e) => {
+      userSettings.blurChatContent = e.target.checked;
       saveSettings();
       applyPrivacyFilters();
     };
@@ -541,6 +583,10 @@ function setupEvents() {
       if (sendSelectorInput) {
         sendSelectorInput.value = userSettings.sendButtonSelector;
       }
+      if (blurChatCb) blurChatCb.checked = userSettings.blurChat;
+      if (blurChatListCb) blurChatListCb.checked = userSettings.blurChatList;
+      if (blurChatContentCb) blurChatContentCb.checked = userSettings.blurChatContent;
+      applyPrivacyFilters();
       alert("Settings reset to defaults.");
     };
   }
