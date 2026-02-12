@@ -1,52 +1,62 @@
-# 📱 WhatsApp Toplu Mesaj Gönderici
+# 📱 WhatsApp Bulk Message Sender
 
-Bu eklenti, WhatsApp Web üzerinden Excel listenizdeki kişilere otomatik ve kişiselleştirilmiş toplu mesaj göndermenizi sağlar. Modern arayüzü ve gizlilik özellikleri ile WhatsApp deneyiminizi geliştirir.
+This extension lets you send automated, personalized bulk messages to contacts in your Excel list via WhatsApp Web. Its modern UI and privacy features improve your WhatsApp experience.
 
-![Logo](icon.png)   
+![Logo](icon.png)
 
-## 🚀 Özellikler
+## 🚀 Features
 
--   **Excel İle Toplu Gönderim**: `.xlsx` formatındaki kişi listelerini yükleyin.
--   **Kişiselleştirilmiş Mesajlar**: `{Ad}`, `{Soyad}` ve `{Hitap}` değişkenlerini kullanarak her kişiye özel mesaj oluşturun.
--   **Etiket Filtreleme**: Excel dosyasındaki etiketlere göre gönderim yapın.
--   **Gizlilik Modu**: Sohbet listenizi (isimler, mesajlar, fotoğraflar) tek tıkla bulanıklaştırın. Ekran görüntüsü almak veya kalabalık ortamlarda çalışmak için idealdir.
--   **Hızlı Erişim**: WhatsApp başlığındaki (yeni sohbet butonunun yanındaki) **Göz İkonuna** tıklayarak gizlilik modunu anında açıp kapatabilirsiniz.
--   **Doğal UI**: WhatsApp Web'in (Light/Dark) temasıyla birebir uyumlu modern tasarım.
--   **Akıllı Bekleme**: Spam algılanmaması için mesajlar arası rastgele bekleme süreleri.
+- **Excel Bulk Sending**: Upload contact lists in `.xlsx` format.
+- **Personalized Messages**: Use `{FirstName}`, `{LastName}`, and `{Salutation}` to create unique messages for each person. (Turkish placeholders `{Ad}`, `{Soyad}`, `{Hitap}` are also supported.)
+- **Tag Filtering**: Send messages based on tags in the Excel file.
+- **Privacy Mode**: Blur your chat list (names, messages, photos) with one click. Ideal for taking screenshots or working in public.
+- **Quick Access**: Toggle privacy mode instantly by clicking the **Eye icon** in the WhatsApp header (next to the New Chat button).
+- **Native UI**: A modern design that matches WhatsApp Web's Light/Dark themes.
+- **Smart Delays**: Random waits between messages to reduce spam detection risk.
 
-## 📦 Kurulum
+## 📦 Installation
 
-1.  GitHub üzerinden indirdiğiniz **`WhatsappSender_v1.0.zip`** (veya `.rar`) dosyasını bilgisayarınıza indirin.
-2.  Arşivi **Belgelerim** klasörü içinde (`Documents\WhatsappSender` vb.) bir klasöre çıkartın.
-3.  **Google Chrome** tarayıcısını açın.
-4.  Adres çubuğuna `chrome://extensions/` yazın ve Enter'a basın.
-5.  Sağ üst köşedeki **Geliştirici Modu** (Developer Mode) anahtarını açın.
-6.  Sol üstte beliren **Paketlenmemiş öğe yükle** (Load unpacked) butonuna tıklayın.
-7.  Arşivi çıkarttığınız klasörü seçin.
-8.  Tebrikler! Eklenti yüklendi. WhatsApp Web'i açtığınızda panel otomatik olarak belirecektir.
+1. Download the **`WhatsappSender_v1.0.zip`** (or `.rar`) file from GitHub.
+2. Extract the archive into a folder, e.g., `Documents\WhatsappSender`.
+3. Open **Google Chrome**.
+4. Go to `chrome://extensions/`.
+5. Enable **Developer Mode** in the top-right corner.
+6. Click **Load unpacked** in the top-left corner.
+7. Select the extracted folder.
+8. Done! When you open WhatsApp Web, the panel will appear automatically.
 
-## 📖 Kullanım Kılavuzu
+## 📖 User Guide
 
-### 1. Excel Dosyası Hazırlama
-Excel dosyanızın başlıkları şu formatta olmalıdır:
+### 1. Preparing the Excel File
+Your Excel headers should follow this format:
+
+| Number | FirstName | LastName | Salutation | Tag1 |
+| :--- | :--- | :--- | :--- | :--- |
+| 5321234567 | Ahmet | Yilmaz | Mr. | Customer |
+
+Turkish headers are also supported:
+
 | Numara | Ad | Soyad | Hitap | Etiket1 |
 | :--- | :--- | :--- | :--- | :--- |
-| 5321234567 | Ahmet | Yılmaz | Bey | Müşteri |
+| 5321234567 | Ahmet | Yilmaz | Bey | Musteri |
 
-### 2. Gönderim Yapma
-1.  **WhatsApp Web**'i (`web.whatsapp.com`) açın.
-2.  Sol panelde eklentiyi göreceksiniz.
-3.  **Dosya Seç** butonundan hazırladığınız Excel dosyasını yükleyin.
-4.  **Hedef Kitle** bölümünden göndermek istediğiniz etiketi seçin.
-5.  **Mesaj İçeriği** kutusuna mesajınızı yazın. `{Ad}` butonlarına tıklayarak değişken ekleyebilirsiniz.
-6.  **BAŞLAT** butonuna basın ve yaslanın!
+### 2. Sending Messages
 
-### ⚙️ Ayarlar
-**Gelişmiş Ayarlar** menüsü altından:
--   **Sohbet Gizliliği (Blur)**: Bu kutucuğu işaretlerseniz, sol taraftaki sohbet listesi (isimler ve mesaj önizlemeleri) bulanıklaşır. Mouse ile üzerine geldiğinizde netleşir.
+1. Open **WhatsApp Web** (`web.whatsapp.com`).
+2. You will see the extension panel on the left.
+3. Click **Choose File** and upload your Excel file.
+4. Select your target **Tag**.
+5. Write your message. Click the `{FirstName}` / `{LastName}` / `{Salutation}` buttons to insert variables.
+6. Click **START** and relax!
 
-## ⚠️ Uyarı
-Bu yazılım sadece eğitim ve kişisel kullanım amaçlıdır. WhatsApp'ın kullanım koşullarına uymak kullanıcının sorumluluğundadır. Çok hızlı ve aşırı gönderim yapmak hesabınızın kısıtlanmasına neden olabilir. "Gönderim Hızı" ayarlarını makul seviyelerde tutunuz.
+### ⚙️ Settings
+
+Under **Advanced Settings**:
+- **Chat Privacy (Blur)**: When checked, the chat list on the left (names and previews) is blurred. It becomes clear on hover.
+
+## ⚠️ Warning
+
+This software is for educational and personal use only. Users are responsible for complying with WhatsApp's terms of service. Sending too fast or too many messages can result in account restrictions. Keep the **Sending Speed** settings at reasonable levels.
 
 ---
-**Geliştirici**: Tuna
+**Developer**: Tuna
