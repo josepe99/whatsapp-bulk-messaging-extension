@@ -92,6 +92,9 @@
   margin: 6px 17px 10px 17px;
   /* üst, sağ, alt, sol */
   width: auto;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 24px);
 
   padding: 10px 8px 10px 10px;
   border-radius: 18px;
@@ -100,6 +103,7 @@
   backdrop-filter: blur(18px) saturate(180%);
   -webkit-backdrop-filter: blur(18px) saturate(180%);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
 }
 
 
@@ -212,8 +216,26 @@
   margin-top: 8px;
   display: flex;
   flex-direction: column;
+  min-height: 0;
   gap: 8px;
-  padding: 4px 2px 0;
+  padding: 4px 4px 0 2px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+}
+
+.wp-content-area::-webkit-scrollbar {
+  width: 6px;
+}
+
+.wp-content-area::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.wp-content-area::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 20px;
 }
 
 #wp-custom-panel.minimized .wp-content-area {
@@ -356,8 +378,9 @@
   transform: translateY(-1px);
 }
 
-box-shadow: 0 2px 7px rgba(88, 166, 100, 0.35);
-transform: scale(0.98);
+.wp-file-btn:active {
+  box-shadow: 0 2px 7px rgba(88, 166, 100, 0.35);
+  transform: scale(0.98);
 }
 
 .wp-file-btn,

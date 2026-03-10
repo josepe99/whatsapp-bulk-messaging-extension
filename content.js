@@ -105,12 +105,12 @@ function injectPanel() {
              <img src="${logoUrl}" alt="logo">
           </div>
           <div class="wp-header-text">
-            <div class="wp-header-title">WhatsApp Bulk Message Sender</div>
+            <div class="wp-header-title">Envío masivo de WhatsApp</div>
             <div class="wp-header-sub">
               <span class="wp-status-dot" id="wp-dot"></span>
-              <span id="wp-status">Ready.</span>
+              <span id="wp-status">Listo.</span>
             </div>
-            <div class="wp-signature">Developed by Tuna</div>
+            <div class="wp-signature">Desarrollado por Tuna</div>
           </div>
         </div>
         <button class="wp-header-toggle" type="button">
@@ -122,8 +122,8 @@ function injectPanel() {
         <!-- Top intro card -->
         <section class="wp-card wp-card-intro">
           <div class="wp-card-intro-main">
-            <div class="wp-card-intro-title">Bulk sending panel</div>
-            <div class="wp-card-intro-sub">Import contacts from Excel, pick a tag, write the message, and send automatically.</div>
+            <div class="wp-card-intro-title">Panel de envíos masivos</div>
+            <div class="wp-card-intro-sub">Importa contactos desde Excel, elige una etiqueta, escribe el mensaje y envíalo automáticamente.</div>
           </div>
           <div class="wp-card-intro-pill">v1.0</div>
         </section>
@@ -134,34 +134,34 @@ function injectPanel() {
           <section class="wp-card">
             <div class="wp-card-head">
               <div class="wp-card-head-left">
-                <span class="wp-card-title">Excel File</span>
-                <span class="wp-card-sub">Your contact list in .xlsx format</span>
+                <span class="wp-card-title">Archivo Excel</span>
+                <span class="wp-card-sub">Tu lista de contactos en formato .xlsx</span>
               </div>
               <span class="wp-step-pill">1</span>
             </div>
 
             <div class="wp-file-row">
               <label class="wp-file-btn" style="cursor:pointer;">
-                Choose File
+                Elegir archivo
                 <input type="file" id="wp-file" accept=".xlsx" />
               </label>
-              <button type="button" id="wp-file-reset" class="wp-file-reset-btn">Clear</button>
+              <button type="button" id="wp-file-reset" class="wp-file-reset-btn">Limpiar</button>
             </div>
-            <div class="wp-file-name" id="wp-file-info">No file selected.</div>
+            <div class="wp-file-name" id="wp-file-info">Ningún archivo seleccionado.</div>
           </section>
 
           <!-- Step 2: Tag -->
           <section class="wp-card">
             <div class="wp-card-head">
               <div class="wp-card-head-left">
-                <span class="wp-card-title">Target Audience</span>
-                <span class="wp-card-sub">You can filter by tag</span>
+                <span class="wp-card-title">Público objetivo</span>
+                <span class="wp-card-sub">Puedes filtrar por etiqueta</span>
               </div>
               <span class="wp-step-pill">2</span>
             </div>
 
             <select id="wp-tag-select" class="wp-select" disabled>
-              <option value="">Waiting for file...</option>
+              <option value="">Esperando archivo...</option>
             </select>
           </section>
         </div>
@@ -170,23 +170,23 @@ function injectPanel() {
         <section class="wp-card">
           <div class="wp-card-head">
             <div class="wp-card-head-left">
-              <span class="wp-card-title">Message Content</span>
-              <span class="wp-card-sub">Personalize with first name, last name, and salutation</span>
+              <span class="wp-card-title">Contenido del mensaje</span>
+              <span class="wp-card-sub">Personaliza con nombre, apellido y saludo</span>
             </div>
             <span class="wp-step-pill">3</span>
           </div>
 
           <div class="wp-tag-container">
-            <button class="wp-tag-btn" data-ins="{{Salutation}}">Salutation</button>
-            <button class="wp-tag-btn" data-ins="{{FirstName}}">First Name</button>
-            <button class="wp-tag-btn" data-ins="{{LastName}}">Last Name</button>
+            <button class="wp-tag-btn" data-ins="{{Salutation}}">Saludo</button>
+            <button class="wp-tag-btn" data-ins="{{FirstName}}">Nombre</button>
+            <button class="wp-tag-btn" data-ins="{{LastName}}">Apellido</button>
           </div>
           <div id="wp-messages" class="wp-messages">
-            <textarea id="wp-msg-1" class="wp-textarea wp-msg-input" placeholder="Write message 1..."></textarea>
+            <textarea id="wp-msg-1" class="wp-textarea wp-msg-input" placeholder="Escribe el mensaje 1..."></textarea>
           </div>
           <div class="wp-msg-actions">
-            <button type="button" id="wp-add-msg" class="wp-settings-btn">Add Message</button>
-            <button type="button" id="wp-remove-msg" class="wp-settings-btn wp-settings-btn-secondary">Remove Last</button>
+            <button type="button" id="wp-add-msg" class="wp-settings-btn">Agregar mensaje</button>
+            <button type="button" id="wp-remove-msg" class="wp-settings-btn wp-settings-btn-secondary">Eliminar último</button>
             <span class="wp-msg-count" id="wp-msg-count">1 / 10</span>
           </div>
         </section>
@@ -195,19 +195,19 @@ function injectPanel() {
         <section class="wp-card">
           <div class="wp-card-head">
             <div class="wp-card-head-left">
-              <span class="wp-card-title">Sending Speed</span>
-              <span class="wp-card-sub">Random delay between messages</span>
+              <span class="wp-card-title">Velocidad de envío</span>
+              <span class="wp-card-sub">Retraso aleatorio entre mensajes</span>
             </div>
             <span class="wp-step-pill">4</span>
           </div>
 
           <div class="wp-time-grid">
             <div class="wp-time-item">
-              <label class="wp-label-small">Minimum (sec)</label>
+              <label class="wp-label-small">Mínimo (seg.)</label>
               <input type="number" id="wp-min" value="2" min="2" max="6" class="wp-input" />
             </div>
             <div class="wp-time-item">
-              <label class="wp-label-small">Maximum (sec)</label>
+              <label class="wp-label-small">Máximo (seg.)</label>
               <input type="number" id="wp-max" min="7" max="20" value="7" class="wp-input" />
             </div>
           </div>
@@ -217,8 +217,8 @@ function injectPanel() {
         <section class="wp-card">
           <div class="wp-card-head">
             <div class="wp-card-head-left">
-              <span class="wp-card-title">Send Mode</span>
-              <span class="wp-card-sub">Choose who receives messages</span>
+              <span class="wp-card-title">Modo de envío</span>
+              <span class="wp-card-sub">Elige quién recibe los mensajes</span>
             </div>
             <span class="wp-step-pill">5</span>
           </div>
@@ -226,11 +226,11 @@ function injectPanel() {
           <div class="wp-radio-group" id="wp-send-mode">
             <label class="wp-radio-option">
               <input type="radio" name="wp-send-mode" value="all" />
-              <span>All contacts</span>
+              <span>Todos los contactos</span>
             </label>
             <label class="wp-radio-option">
               <input type="radio" name="wp-send-mode" value="new-only" />
-              <span>Only new contacts (skip existing chats)</span>
+              <span>Solo contactos nuevos (omitir chats existentes)</span>
             </label>
           </div>
         </section>
@@ -239,11 +239,11 @@ function injectPanel() {
         <section class="wp-card">
           <div class="wp-card-head wp-card-head-settings">
             <div class="wp-card-head-left">
-              <span class="wp-card-title">Advanced Settings</span>
-              <span class="wp-card-sub">If the button stops working after a WhatsApp update</span>
+              <span class="wp-card-title">Configuración avanzada</span>
+              <span class="wp-card-sub">Si el botón deja de funcionar tras una actualización de WhatsApp</span>
             </div>
             <button type="button" class="wp-settings-toggle" id="wp-settings-toggle">
-              Advanced
+              Avanzado
               <span class="wp-settings-chevron">▼</span>
             </button>
           </div>
@@ -254,34 +254,34 @@ function injectPanel() {
               <div class="wp-settings-item" style="grid-column: span 2; margin-bottom: 4px;">
                 <label style="display:flex; align-items:center; gap:6px; font-size:11px; color:var(--wp-text-main); cursor:pointer;">
                   <input type="checkbox" id="wp-blur-chat" />
-                  Privacy Mode (Blur)
+                  Modo privacidad (desenfoque)
                 </label>
               </div>
 
               <div class="wp-settings-item">
                 <label style="display:flex; align-items:center; gap:6px; font-size:10px; color:var(--wp-text-main); cursor:pointer;">
                   <input type="checkbox" id="wp-blur-chat-list" />
-                  Blur chat list
+                  Desenfocar lista de chats
                 </label>
               </div>
 
               <div class="wp-settings-item">
                 <label style="display:flex; align-items:center; gap:6px; font-size:10px; color:var(--wp-text-main); cursor:pointer;">
                   <input type="checkbox" id="wp-blur-chat-content" />
-                  Blur chat content
+                  Desenfocar contenido del chat
                 </label>
               </div>
 
               <div class="wp-settings-item">
-                <label class="wp-label-small">Send button selector</label>
+                <label class="wp-label-small">Selector del botón de envío</label>
                 <input type="text" id="wp-send-selector" class="wp-input" />
               </div>
               <div class="wp-settings-actions">
-                <button type="button" id="wp-settings-save" class="wp-settings-btn">Save</button>
-                <button type="button" id="wp-settings-reset" class="wp-settings-btn wp-settings-btn-secondary">Reset</button>
+                <button type="button" id="wp-settings-save" class="wp-settings-btn">Guardar</button>
+                <button type="button" id="wp-settings-reset" class="wp-settings-btn wp-settings-btn-secondary">Restablecer</button>
               </div>
               <p class="wp-settings-hint">
-                Change this only if you must. The default setting will usually be enough.
+                Cambia esto solo si es necesario. La configuración predeterminada suele ser suficiente.
               </p>
             </div>
           </div>
@@ -290,13 +290,13 @@ function injectPanel() {
         <!-- Actions + Status -->
         <div class="wp-actions-group">
           <div class="wp-actions">
-            <button id="wp-start" class="wp-btn-main" disabled>START</button>
-            <button id="wp-stop" class="wp-btn-main wp-btn-stop">STOP</button>
+            <button id="wp-start" class="wp-btn-main" disabled>INICIAR</button>
+            <button id="wp-stop" class="wp-btn-main wp-btn-stop">DETENER</button>
           </div>
 
           <div class="wp-status-bar">
             <span class="wp-status-dot" id="wp-dot-detail"></span>
-            <span id="wp-status-detail">Ready.</span>
+            <span id="wp-status-detail">Listo.</span>
           </div>
         </div>
       </div>
@@ -349,7 +349,7 @@ function injectHeaderButton() {
   const btn = document.createElement("button");
   btn.id = "wp-header-toggle-btn";
   btn.className = "wp-header-btn";
-  btn.title = "Privacy Mode (Blur)";
+  btn.title = "Modo privacidad (desenfoque)";
   // Margin to match the WA header style
   btn.style.marginRight = "10px";
 
@@ -439,7 +439,7 @@ function setupEvents() {
   const createMessageInput = (index) => {
     const textarea = document.createElement("textarea");
     textarea.className = "wp-textarea wp-msg-input";
-    textarea.placeholder = `Write message ${index}...`;
+    textarea.placeholder = `Escribe el mensaje ${index}...`;
     attachMsgInputEvents(textarea);
     return textarea;
   };
@@ -570,7 +570,7 @@ function setupEvents() {
       userSettings.sendButtonSelector =
         sendSelectorInput.value.trim() || DEFAULT_SETTINGS.sendButtonSelector;
       saveSettings();
-      alert("Settings saved.");
+      alert("Configuración guardada.");
     };
   }
 
@@ -587,7 +587,7 @@ function setupEvents() {
       if (blurChatListCb) blurChatListCb.checked = userSettings.blurChatList;
       if (blurChatContentCb) blurChatContentCb.checked = userSettings.blurChatContent;
       applyPrivacyFilters();
-      alert("Settings reset to defaults.");
+      alert("Configuración restablecida a los valores predeterminados.");
     };
   }
 
@@ -622,7 +622,7 @@ function setupEvents() {
           return rawNum.length > 5;
         }).length;
 
-        tagSelect.innerHTML = '<option value="">Select...</option>';
+        tagSelect.innerHTML = '<option value="">Selecciona...</option>';
 
         // Add tags
         tags.forEach((t) => {
@@ -636,7 +636,7 @@ function setupEvents() {
         if (totalNumbers > 0) {
           const optAll = document.createElement("option");
           optAll.value = "__ALL__";
-          optAll.textContent = `Everyone (${totalNumbers})`;
+          optAll.textContent = `Todos (${totalNumbers})`;
           tagSelect.appendChild(optAll);
           tagSelect.disabled = false;
         } else {
@@ -645,19 +645,19 @@ function setupEvents() {
 
         document.getElementById("wp-file-info").innerText =
           totalNumbers > 0
-            ? `✅ ${totalNumbers} numbers.`
-            : "No valid numbers found.";
+            ? `✅ ${totalNumbers} números válidos.`
+            : "No se encontraron números válidos.";
         startBtn.disabled = true;
-        startBtn.innerText = "START";
+        startBtn.innerText = "INICIAR";
       } catch (err) {
         console.error(err);
         allRows = [];
-        tagSelect.innerHTML = '<option value="">File could not be read</option>';
+        tagSelect.innerHTML = '<option value="">No se pudo leer el archivo</option>';
         tagSelect.disabled = true;
-        document.getElementById("wp-file-info").innerText = "❌ File could not be read.";
+        document.getElementById("wp-file-info").innerText = "❌ No se pudo leer el archivo.";
         startBtn.disabled = true;
-        startBtn.innerText = "START";
-        alert("File could not be read!");
+        startBtn.innerText = "INICIAR";
+        alert("No se pudo leer el archivo.");
       }
     };
     reader.readAsArrayBuffer(file);
@@ -669,11 +669,11 @@ function setupEvents() {
       e.stopPropagation();
       fileInput.value = "";
       allRows = [];
-      tagSelect.innerHTML = '<option value="">Waiting for file...</option>';
+      tagSelect.innerHTML = '<option value="">Esperando archivo...</option>';
       tagSelect.disabled = true;
-      document.getElementById("wp-file-info").innerText = "No file selected.";
+      document.getElementById("wp-file-info").innerText = "Ningún archivo seleccionado.";
       startBtn.disabled = true;
-      startBtn.innerText = "START";
+      startBtn.innerText = "INICIAR";
     };
   }
 
@@ -684,7 +684,7 @@ function setupEvents() {
     const count = queue.length;
 
     startBtn.disabled = count === 0;
-    startBtn.innerText = count > 0 ? `START (${count})` : "START";
+    startBtn.innerText = count > 0 ? `INICIAR (${count})` : "INICIAR";
   });
 
   // Variable buttons (add one space at the end)
@@ -710,7 +710,7 @@ function setupEvents() {
     e.stopPropagation();
 
     if (isRunning) {
-      alert("A sending process is already running.");
+      alert("Ya hay un proceso de envío en ejecución.");
       return;
     }
 
@@ -718,14 +718,14 @@ function setupEvents() {
     const messages = getMessageTemplates();
 
     if (!tag || messages.length === 0) {
-      alert("Tag and at least one message are required!");
+      alert("Debes seleccionar una etiqueta y escribir al menos un mensaje.");
       return;
     }
 
     const queue = buildQueueForTag(tag);
 
     if (queue.length === 0) {
-      alert("No numbers found for this tag.");
+      alert("No se encontraron números para esta etiqueta.");
       return;
     }
 
@@ -742,7 +742,7 @@ function setupEvents() {
   stopBtn.onclick = (e) => {
     e.stopPropagation();
     isRunning = false;
-    setStatus("⛔ Stopped.");
+    setStatus("⛔ Proceso detenido.");
     toggleButtons(false);
   };
 }
@@ -770,7 +770,7 @@ async function startSendingProcess(queue, msgTemplates) {
       person.phone
     )}`;
 
-    setStatus(`Preparing (${i + 1}/${queue.length}): ${person.ad}`);
+    setStatus(`Preparando (${i + 1}/${queue.length}): ${person.ad}`);
 
     // Simulate link click
     const link = document.createElement("a");
@@ -790,11 +790,11 @@ async function startSendingProcess(queue, msgTemplates) {
       let skip = false;
 
       if (userSettings.onlyNewContacts) {
-        setStatus(`Checking history (${i + 1}/${queue.length}): ${person.ad}`);
+        setStatus(`Revisando historial (${i + 1}/${queue.length}): ${person.ad}`);
         const hasHistory = hasExistingMessages();
         if (hasHistory) {
           skip = true;
-          setStatus(`⏭ Skipped (existing chat): ${person.ad}`);
+          setStatus(`⏭ Omitido (chat existente): ${person.ad}`);
         }
       }
 
@@ -834,7 +834,7 @@ async function startSendingProcess(queue, msgTemplates) {
           sentCount++;
           setStatus(`✅ ${i + 1}/${queue.length} - ${person.ad}`);
         } else {
-          setStatus(`❌ Button not found: ${person.ad}`);
+          setStatus(`❌ Botón no encontrado: ${person.ad}`);
           console.warn("Send button not found for:", person.ad);
         }
       }
@@ -848,19 +848,19 @@ async function startSendingProcess(queue, msgTemplates) {
     // Do not wait after the last person
     if (i < queue.length - 1) {
       if (breakCount > 0 && sentCount > 0 && sentCount % breakCount === 0) {
-        await sleepCount(breakSec, "Break");
+        await sleepCount(breakSec, "Pausa");
       } else {
         const wait = Math.floor(
           Math.random() * (maxTime - minTime + 1) + minTime
         );
-        await sleepCount(wait, "Waiting");
+        await sleepCount(wait, "Esperando");
       }
     }
   }
 
   isRunning = false;
   toggleButtons(false);
-  if (sentCount > 0) setStatus("🎉 Done!");
+  if (sentCount > 0) setStatus("🎉 Proceso finalizado.");
 }
 
 /* ==== Helpers ==== */
@@ -943,11 +943,11 @@ function setStatus(msg) {
   if (detailStatus) detailStatus.innerText = msg;
 
   const isActive =
-    msg.includes("Preparing") ||
-    msg.includes("Checking") ||
-    msg.includes("Sending") ||
-    msg.includes("Waiting") ||
-    msg.includes("Break");
+    msg.includes("Preparando") ||
+    msg.includes("Revisando") ||
+    msg.includes("Enviando") ||
+    msg.includes("Esperando") ||
+    msg.includes("Pausa");
 
   if (headerDot) headerDot.classList.toggle("active", isActive);
   if (detailDot) detailDot.classList.toggle("active", isActive);
