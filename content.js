@@ -126,7 +126,7 @@ function injectPanel() {
             <div class="wp-card-intro-title">Panel de envíos masivos</div>
             <div class="wp-card-intro-sub">Importa contactos desde Excel, elige una etiqueta, escribe el mensaje y envíalo automáticamente.</div>
           </div>
-          <div class="wp-card-intro-pill">v1.0</div>
+          <div class="wp-card-intro-pill">v2.0</div>
         </section>
 
         <!-- Step 1 + Step 2 side by side -->
