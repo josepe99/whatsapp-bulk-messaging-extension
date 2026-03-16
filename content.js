@@ -806,6 +806,7 @@ async function startSendingProcess(queue, msgTemplates, imageFile) {
     if (!isRunning) break;
 
     const person = queue[i];
+    let skippedCurrentContact = false;
     const baseUrl = `https://web.whatsapp.com/send?phone=${encodeURIComponent(
       person.phone
     )}`;
@@ -834,6 +835,7 @@ async function startSendingProcess(queue, msgTemplates, imageFile) {
         const hasHistory = hasExistingMessages();
         if (hasHistory) {
           skip = true;
+          skippedCurrentContact = true;
           setStatus(`⏭ Omitido (chat existente): ${person.ad}`);
         }
       }
@@ -897,6 +899,10 @@ async function startSendingProcess(queue, msgTemplates, imageFile) {
 
     // Do not wait after the last person
     if (i < queue.length - 1) {
+      if (skippedCurrentContact) {
+        continue;
+      }
+
       if (breakCount > 0 && sentCount > 0 && sentCount % breakCount === 0) {
         await sleepCount(breakSec, "Pausa");
       } else {
