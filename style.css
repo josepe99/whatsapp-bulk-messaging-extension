@@ -490,6 +490,20 @@
   margin-left: auto;
 }
 
+.wp-media-box {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--wp-border);
+  display: grid;
+  gap: 6px;
+}
+
+.wp-media-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
 /* --- ETİKET BUTONLARI --- */
 .wp-tag-container {
   display: flex;

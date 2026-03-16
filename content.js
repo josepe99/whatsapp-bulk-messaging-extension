@@ -2,6 +2,7 @@
 
 let allRows = [];
 let isRunning = false;
+let selectedImageFile = null;
 
 /* ==== Settings (selector) ==== */
 
@@ -110,7 +111,7 @@ function injectPanel() {
               <span class="wp-status-dot" id="wp-dot"></span>
               <span id="wp-status">Listo.</span>
             </div>
-            <div class="wp-signature">Desarrollado por Tuna</div>
+            <div class="wp-signature">Desarrollado por DA Studios</div>
           </div>
         </div>
         <button class="wp-header-toggle" type="button">
@@ -188,6 +189,21 @@ function injectPanel() {
             <button type="button" id="wp-add-msg" class="wp-settings-btn">Agregar mensaje</button>
             <button type="button" id="wp-remove-msg" class="wp-settings-btn wp-settings-btn-secondary">Eliminar último</button>
             <span class="wp-msg-count" id="wp-msg-count">1 / 10</span>
+          </div>
+
+          <div class="wp-media-box">
+            <div class="wp-media-head">
+              <span class="wp-card-title">Imagen opcional</span>
+              <span class="wp-card-sub">Se enviara la misma imagen a todos los contactos</span>
+            </div>
+            <div class="wp-file-row">
+              <label class="wp-file-btn" style="cursor:pointer;">
+                Elegir imagen
+                <input type="file" id="wp-image-file" accept="image/*" />
+              </label>
+              <button type="button" id="wp-image-reset" class="wp-file-reset-btn">Limpiar</button>
+            </div>
+            <div class="wp-file-name" id="wp-image-info">Sin imagen seleccionada.</div>
           </div>
         </section>
 
@@ -409,6 +425,9 @@ function setupEvents() {
 
   const fileInput = document.getElementById("wp-file");
   const fileResetBtn = document.getElementById("wp-file-reset");
+  const imageInput = document.getElementById("wp-image-file");
+  const imageResetBtn = document.getElementById("wp-image-reset");
+  const imageInfo = document.getElementById("wp-image-info");
   const tagSelect = document.getElementById("wp-tag-select");
   const startBtn = document.getElementById("wp-start");
   const stopBtn = document.getElementById("wp-stop");
@@ -663,6 +682,27 @@ function setupEvents() {
     reader.readAsArrayBuffer(file);
   });
 
+  if (imageInput) {
+    imageInput.addEventListener("change", (e) => {
+      const file = e.target.files?.[0] || null;
+      selectedImageFile = file;
+      if (imageInfo) {
+        imageInfo.innerText = file
+          ? `🖼 ${file.name}`
+          : "Sin imagen seleccionada.";
+      }
+    });
+  }
+
+  if (imageResetBtn) {
+    imageResetBtn.onclick = (e) => {
+      e.stopPropagation();
+      selectedImageFile = null;
+      if (imageInput) imageInput.value = "";
+      if (imageInfo) imageInfo.innerText = "Sin imagen seleccionada.";
+    };
+  }
+
   // Clear Excel
   if (fileResetBtn) {
     fileResetBtn.onclick = (e) => {
@@ -735,7 +775,7 @@ function setupEvents() {
       p.classList.add("minimized");
     }
 
-    startSendingProcess(queue, messages);
+    startSendingProcess(queue, messages, selectedImageFile);
   };
 
   // STOP
@@ -749,7 +789,7 @@ function setupEvents() {
 
 /* ==== Sending Engine ==== */
 
-async function startSendingProcess(queue, msgTemplates) {
+async function startSendingProcess(queue, msgTemplates, imageFile) {
   isRunning = true;
   toggleButtons(true);
 
@@ -809,6 +849,16 @@ async function startSendingProcess(queue, msgTemplates) {
           .replace(/{{FirstName}}/g, person.ad)
           .replace(/{{LastName}}/g, person.soyad)
           .replace(/{{Salutation}}/g, person.hitap || "");
+
+        if (imageFile) {
+          setStatus(`Adjuntando imagen (${i + 1}/${queue.length}): ${person.ad}`);
+          const imageSent = await sendImageAttachment(imageFile, selector);
+          if (!imageSent) {
+            console.warn("Image could not be sent for:", person.ad);
+            setStatus(`⚠️ Imagen no enviada, continuando con texto: ${person.ad}`);
+            await sleep(1200);
+          }
+        }
 
         let sendBtn = null;
         const msgInput = await waitForMessageInput(10000);
@@ -945,6 +995,7 @@ function setStatus(msg) {
   const isActive =
     msg.includes("Preparando") ||
     msg.includes("Revisando") ||
+    msg.includes("Adjuntando") ||
     msg.includes("Enviando") ||
     msg.includes("Esperando") ||
     msg.includes("Pausa");
@@ -992,6 +1043,153 @@ function waitForElement(selector, timeout) {
       resolve(null);
     }, timeout);
   });
+}
+
+function isVisibleElement(el) {
+  if (!el || !(el instanceof Element)) return false;
+  const style = window.getComputedStyle(el);
+  return (
+    style.display !== "none" &&
+    style.visibility !== "hidden" &&
+    el.getClientRects().length > 0
+  );
+}
+
+function findAttachmentButton() {
+  const selectors = [
+    'button[title="Attach"]',
+    'button[title="Adjuntar"]',
+    'button[title="Anexar"]',
+    'button[aria-label="Attach"]',
+    'button[aria-label="Adjuntar"]',
+    'button[aria-label="Anexar"]',
+    '[data-icon="plus-rounded"]',
+    '[data-icon="clip"]'
+  ];
+
+  for (const selector of selectors) {
+    const candidate =
+      document.querySelector(selector)?.closest("button") ||
+      document.querySelector(selector);
+    if (isVisibleElement(candidate)) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
+function findMediaFileInput() {
+  const inputs = Array.from(document.querySelectorAll('input[type="file"]'));
+  return (
+    inputs.find((input) => {
+      if (input.id === "wp-image-file" || input.closest("#wp-custom-panel")) {
+        return false;
+      }
+      const accept = (input.getAttribute("accept") || "").toLowerCase();
+      return accept.includes("image");
+    }) || null
+  );
+}
+
+function setFileInputFile(input, file) {
+  if (!input || !file) return false;
+
+  try {
+    const dataTransfer = new DataTransfer();
+    dataTransfer.items.add(file);
+    input.files = dataTransfer.files;
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+    return true;
+  } catch (e) {
+    console.error("Could not set media input file:", e);
+    return false;
+  }
+}
+
+function waitForMediaFileInput(timeout = 8000) {
+  return new Promise((resolve) => {
+    const currentInput = findMediaFileInput();
+    if (currentInput) return resolve(currentInput);
+
+    const observer = new MutationObserver(() => {
+      const input = findMediaFileInput();
+      if (input) {
+        observer.disconnect();
+        resolve(input);
+      }
+    });
+
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    setTimeout(() => {
+      observer.disconnect();
+      resolve(null);
+    }, timeout);
+  });
+}
+
+function getAnyVisibleSendButton(selector, options = {}) {
+  const { excludeFooter = false } = options;
+  const buttons = Array.from(document.querySelectorAll(selector));
+  return (
+    buttons.find((btn) => {
+      if (!isVisibleElement(btn) || btn.closest("#wp-custom-panel")) {
+        return false;
+      }
+      if (excludeFooter && btn.closest("footer")) {
+        return false;
+      }
+      return true;
+    }) || null
+  );
+}
+
+async function waitForVisibleSendButton(selector, timeout = 10000, options = {}) {
+  const currentButton = getAnyVisibleSendButton(selector, options);
+  if (currentButton) return currentButton;
+
+  return new Promise((resolve) => {
+    const observer = new MutationObserver(() => {
+      const btn = getAnyVisibleSendButton(selector, options);
+      if (btn) {
+        observer.disconnect();
+        resolve(btn);
+      }
+    });
+
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    setTimeout(() => {
+      observer.disconnect();
+      resolve(null);
+    }, timeout);
+  });
+}
+
+async function sendImageAttachment(file, sendButtonSelector) {
+  const attachmentButton = findAttachmentButton();
+  if (!attachmentButton) return false;
+
+  attachmentButton.click();
+  await sleep(250);
+
+  const mediaInput = await waitForMediaFileInput(8000);
+  if (!mediaInput) return false;
+
+  const fileAssigned = setFileInputFile(mediaInput, file);
+  if (!fileAssigned) return false;
+
+  await sleep(1500);
+
+  const mediaSendBtn = await waitForVisibleSendButton(sendButtonSelector, 10000, {
+    excludeFooter: true
+  });
+  if (!mediaSendBtn) return false;
+
+  mediaSendBtn.click();
+  await sleep(2500);
+  return true;
 }
 
 /* ==== Watcher ==== */

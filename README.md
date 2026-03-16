@@ -61,4 +61,4 @@ Under **Advanced Settings**:
 This software is for educational and personal use only. Users are responsible for complying with WhatsApp's terms of service. Sending too fast or too many messages can result in account restrictions. Keep the **Sending Speed** settings at reasonable levels.
 
 ---
-**Developer**: Tuna
+**Developer**: DA Studios
