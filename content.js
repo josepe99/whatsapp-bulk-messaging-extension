@@ -4,6 +4,40 @@ let allRows = [];
 let isRunning = false;
 let selectedImageFile = null;
 
+function normalizeColumnName(columnName) {
+  return String(columnName || "")
+    .trim()
+    .toLowerCase();
+}
+
+function normalizeImportedRow(row) {
+  return Object.entries(row || {}).reduce((normalizedRow, [key, value]) => {
+    const normalizedKey = normalizeColumnName(key);
+    if (!normalizedKey) return normalizedRow;
+    normalizedRow[normalizedKey] = value;
+    return normalizedRow;
+  }, {});
+}
+
+function getRowValue(row, possibleKeys) {
+  for (const key of possibleKeys) {
+    const value = row[normalizeColumnName(key)];
+    if (value !== undefined && value !== null && value !== "") {
+      return value;
+    }
+  }
+  return "";
+}
+
+function getRowPhoneValue(row) {
+  return getRowValue(row, ["numara", "number", "phone"]);
+}
+
+function isTagColumnKey(key) {
+  const keyLower = normalizeColumnName(key);
+  return keyLower.startsWith("etiket") || keyLower.startsWith("tag");
+}
+
 /* ==== Settings (selector) ==== */
 
 const DEFAULT_SETTINGS = {
@@ -50,7 +84,7 @@ function buildQueueForTag(tag) {
 
   return allRows
     .filter((row) => {
-      const phoneRaw = row.Numara ?? row.Number ?? row.Phone ?? "";
+      const phoneRaw = getRowPhoneValue(row);
       const rawNum = phoneRaw ? phoneRaw.toString().replace(/\D/g, "") : "";
       if (rawNum.length <= 5) return false; // left the number filter as-is
 
@@ -60,21 +94,17 @@ function buildQueueForTag(tag) {
       }
 
       const hasTag = Object.keys(row).some((key) => {
-        const keyLower = key.toLowerCase();
-        return (
-          (keyLower.startsWith("etiket") || keyLower.startsWith("tag")) &&
-          String(row[key]).trim() === String(tag).trim()
-        );
+        return isTagColumnKey(key) && String(row[key]).trim() === String(tag).trim();
       });
       return hasTag;
     })
     .map((row) => {
-      const phoneRaw = row.Numara ?? row.Number ?? row.Phone ?? "";
+      const phoneRaw = getRowPhoneValue(row);
       return {
         phone: phoneRaw ? phoneRaw.toString().replace(/\D/g, "") : "",
-        ad: row.Ad || row.FirstName || "",
-        soyad: row.Soyad || row.LastName || "",
-        hitap: row.Hitap || row.Salutation || ""
+        ad: getRowValue(row, ["ad", "firstname"]),
+        soyad: getRowValue(row, ["soyad", "lastname"]),
+        hitap: getRowValue(row, ["hitap", "salutation"])
       };
     });
 }
@@ -620,15 +650,14 @@ function setupEvents() {
       try {
         const data = new Uint8Array(elem.target.result);
         const workbook = XLSX.read(data, { type: "array" });
-        allRows = XLSX.utils.sheet_to_json(
-          workbook.Sheets[workbook.SheetNames[0]]
-        );
+        allRows = XLSX.utils
+          .sheet_to_json(workbook.Sheets[workbook.SheetNames[0]])
+          .map(normalizeImportedRow);
 
         const tags = new Set();
         allRows.forEach((row) => {
           Object.keys(row).forEach((key) => {
-            const keyLower = key.toLowerCase();
-            if ((keyLower.startsWith("etiket") || keyLower.startsWith("tag")) && row[key]) {
+            if (isTagColumnKey(key) && row[key]) {
               tags.add(String(row[key]).trim());
             }
           });
@@ -636,7 +665,7 @@ function setupEvents() {
 
         // Total numbers
         const totalNumbers = allRows.filter((row) => {
-          const phoneRaw = row.Numara ?? row.Number ?? row.Phone ?? "";
+          const phoneRaw = getRowPhoneValue(row);
           const rawNum = phoneRaw ? phoneRaw.toString().replace(/\D/g, "") : "";
           return rawNum.length > 5;
         }).length;
