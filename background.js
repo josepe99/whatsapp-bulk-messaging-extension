@@ -14,6 +14,45 @@ function randomIntInclusive(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
+function getMaskedPhoneTail(phone) {
+  const digits = String(phone || "").replace(/\D/g, "");
+  if (!digits) return "";
+  return `***${digits.slice(-3)}`;
+}
+
+function getNextContact(task) {
+  if (!task?.active || !Array.isArray(task.queue)) return null;
+
+  const person = task.queue[task.currentIndex];
+  if (!person) return null;
+
+  return {
+    name: person.ad || "Sin nombre",
+    phoneTail: getMaskedPhoneTail(person.phone)
+  };
+}
+
+function pickRandomTemplate(templates, previousIndex = -1) {
+  if (!Array.isArray(templates) || templates.length === 0) {
+    return { template: "", templateIndex: -1 };
+  }
+
+  if (templates.length === 1) {
+    return { template: templates[0], templateIndex: 0 };
+  }
+
+  const candidates = templates
+    .map((_, index) => index)
+    .filter((index) => index !== previousIndex);
+
+  const templateIndex = candidates[randomIntInclusive(0, candidates.length - 1)];
+
+  return {
+    template: templates[templateIndex],
+    templateIndex
+  };
+}
+
 async function getTask() {
   const stored = await chrome.storage.local.get(TASK_STORAGE_KEY);
   return stored[TASK_STORAGE_KEY] || null;
@@ -32,7 +71,8 @@ function buildState(task) {
     currentIndex: Number(task?.currentIndex) || 0,
     totalCount,
     sentCount: Number(task?.sentCount) || 0,
-    nextRunAt: Number(task?.nextRunAt) || null
+    nextRunAt: Number(task?.nextRunAt) || null,
+    nextContact: getNextContact(task)
   };
 }
 
@@ -138,6 +178,7 @@ async function handleStartSending(payload, sender) {
     breakSec: DEFAULT_BREAK_SEC,
     sendButtonSelector: payload?.sendButtonSelector || DEFAULT_SEND_SELECTOR,
     onlyNewContacts: !!payload?.onlyNewContacts,
+    lastTemplateIndex: -1,
     statusMessage: `Preparando (1/${queue.length})`,
     nextRunAt: Date.now() + 300,
     startedAt: Date.now()
@@ -184,8 +225,10 @@ async function executeTaskStep() {
   }
 
   const person = task.queue[task.currentIndex];
+  const selectedTemplate = pickRandomTemplate(task.msgTemplates, task.lastTemplateIndex);
   const processingTask = {
     ...task,
+    lastTemplateIndex: selectedTemplate.templateIndex,
     statusMessage: `Preparando (${task.currentIndex + 1}/${task.totalCount}): ${person?.ad || person?.phone || ""}`
   };
 
@@ -200,7 +243,7 @@ async function executeTaskStep() {
         person,
         position: task.currentIndex + 1,
         totalCount: task.totalCount,
-        msgTemplates: task.msgTemplates,
+        selectedTemplate: selectedTemplate.template,
         imagePayload: task.imagePayload,
         sendButtonSelector: task.sendButtonSelector,
         onlyNewContacts: task.onlyNewContacts
@@ -224,7 +267,7 @@ async function executeTaskStep() {
   };
 
   const nextTask = {
-    ...task,
+    ...processingTask,
     currentIndex: task.currentIndex + 1,
     sentCount: task.sentCount + (result.status === "sent" ? 1 : 0)
   };

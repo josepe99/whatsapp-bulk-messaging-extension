@@ -5,6 +5,8 @@ let isRunning = false;
 let selectedImageFile = null;
 let pendingBackgroundState = null;
 const SUPPORTED_CONTACT_FILE_EXTENSIONS = [".xls", ".xlsx", ".csv"];
+const DEFAULT_MIN_MINUTES = 1;
+const DEFAULT_MAX_MINUTES = 2;
 
 function getFileExtension(fileName) {
   const normalizedName = String(fileName || "").trim().toLowerCase();
@@ -261,12 +263,12 @@ function injectPanel() {
 
           <div class="wp-time-grid">
             <div class="wp-time-item">
-              <label class="wp-label-small">Mínimo (seg.)</label>
-              <input type="number" id="wp-min" value="2" min="2" max="6" class="wp-input" />
+              <label class="wp-label-small">Mínimo (min.)</label>
+              <input type="number" id="wp-min" value="${DEFAULT_MIN_MINUTES}" min="0.1" max="120" step="0.1" class="wp-input" />
             </div>
             <div class="wp-time-item">
-              <label class="wp-label-small">Máximo (seg.)</label>
-              <input type="number" id="wp-max" min="7" max="20" value="7" class="wp-input" />
+              <label class="wp-label-small">Máximo (min.)</label>
+              <input type="number" id="wp-max" min="0.1" max="120" step="0.1" value="${DEFAULT_MAX_MINUTES}" class="wp-input" />
             </div>
           </div>
         </section>
@@ -354,7 +356,10 @@ function injectPanel() {
 
           <div class="wp-status-bar">
             <span class="wp-status-dot" id="wp-dot-detail"></span>
-            <span id="wp-status-detail">Listo.</span>
+            <div class="wp-status-copy">
+              <span id="wp-status-detail">Listo.</span>
+              <span id="wp-next-contact" class="wp-next-contact">Siguiente: sin cola pendiente.</span>
+            </div>
           </div>
         </div>
       </div>
@@ -522,7 +527,7 @@ function setupEvents() {
 
   const getMessageTemplates = () =>
     getMsgInputs()
-      .map((el) => (el.value || "").trim())
+      .map((el) => normalizeTemplateText(el.value))
       .filter((val) => val.length > 0)
       .slice(0, MAX_MESSAGES);
 
@@ -844,6 +849,20 @@ function setupEvents() {
     try {
       setStatus("Preparando cola...");
 
+      const minMinutes = parseMinutesInput(
+        document.getElementById("wp-min")?.value,
+        DEFAULT_MIN_MINUTES
+      );
+      const maxMinutes = Math.max(
+        minMinutes,
+        parseMinutesInput(document.getElementById("wp-max")?.value, DEFAULT_MAX_MINUTES)
+      );
+
+      const minInput = document.getElementById("wp-min");
+      const maxInput = document.getElementById("wp-max");
+      if (minInput) minInput.value = String(minMinutes);
+      if (maxInput) maxInput.value = String(maxMinutes);
+
       const imagePayload = selectedImageFile
         ? await fileToImagePayload(selectedImageFile)
         : null;
@@ -854,8 +873,8 @@ function setupEvents() {
           queue,
           msgTemplates: messages,
           imagePayload,
-          minTime: parseInt(document.getElementById("wp-min")?.value, 10) || 2,
-          maxTime: parseInt(document.getElementById("wp-max")?.value, 10) || 7,
+          minTime: minutesToSeconds(minMinutes),
+          maxTime: minutesToSeconds(maxMinutes),
           sendButtonSelector:
             userSettings.sendButtonSelector || DEFAULT_SETTINGS.sendButtonSelector,
           onlyNewContacts: !!userSettings.onlyNewContacts
@@ -906,7 +925,7 @@ async function processQueueItem(payload) {
     person,
     position,
     totalCount,
-    msgTemplates,
+    selectedTemplate,
     imagePayload,
     sendButtonSelector,
     onlyNewContacts
@@ -961,8 +980,7 @@ async function processQueueItem(payload) {
 
     if (!skip) {
       const selector = sendButtonSelector || DEFAULT_SETTINGS.sendButtonSelector;
-      const chosenTemplate = pickRandomTemplate(msgTemplates);
-      let text = chosenTemplate
+      let text = String(selectedTemplate || "")
         .replace(/{{Ad}}/g, person.ad)
         .replace(/{{Soyad}}/g, person.soyad)
         .replace(/{{Hitap}}/g, person.hitap || "")
@@ -1043,11 +1061,30 @@ async function processQueueItem(payload) {
 
 /* ==== Helpers ==== */
 
-function pickRandomTemplate(templates) {
-  if (!Array.isArray(templates) || templates.length === 0) return "";
-  if (templates.length === 1) return templates[0];
-  const idx = Math.floor(Math.random() * templates.length);
-  return templates[idx];
+function normalizeTemplateText(text) {
+  return String(text || "")
+    .replace(/\r\n/g, "\n")
+    .trim();
+}
+
+function parseMinutesInput(value, fallbackMinutes) {
+  const parsed = Number.parseFloat(value);
+  if (Number.isNaN(parsed)) return fallbackMinutes;
+  return Math.min(Math.max(parsed, 0.1), 120);
+}
+
+function minutesToSeconds(minutes) {
+  return Math.max(1, Math.round(Number(minutes) * 60));
+}
+
+function formatNextContact(nextContact) {
+  if (!nextContact?.name && !nextContact?.phoneTail) {
+    return "Siguiente: sin cola pendiente.";
+  }
+
+  const name = nextContact.name || "Sin nombre";
+  const phoneTail = nextContact.phoneTail || "***";
+  return `Siguiente: ${name} (${phoneTail})`;
 }
 
 function getMessageInput() {
@@ -1130,6 +1167,12 @@ function setStatus(msg) {
 
   if (headerDot) headerDot.classList.toggle("active", isActive);
   if (detailDot) detailDot.classList.toggle("active", isActive);
+}
+
+function setNextContactStatus(nextContact) {
+  const nextContactEl = document.getElementById("wp-next-contact");
+  if (!nextContactEl) return;
+  nextContactEl.innerText = formatNextContact(nextContact);
 }
 
 function toggleButtons(active) {
@@ -1357,6 +1400,7 @@ function applyBackgroundState(state) {
   pendingBackgroundState = state;
   toggleButtons(!!state.isRunning);
   setStatus(state.status || "Listo.");
+  setNextContactStatus(state.nextContact || null);
 }
 
 async function syncBackgroundState() {

@@ -719,6 +719,26 @@
   -webkit-backdrop-filter: blur(14px);
 }
 
+.wp-status-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.wp-status-copy > span {
+  line-height: 1.25;
+}
+
+.wp-next-contact {
+  font-size: 9px;
+  color: var(--wp-text-sec);
+  opacity: 0.9;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .wp-status-dot {
   width: 7px;
   height: 7px;
