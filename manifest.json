@@ -9,11 +9,16 @@
     "128": "icon.png"
   },
   "permissions": [
-    "storage"
+    "storage",
+    "alarms",
+    "tabs"
   ],
   "host_permissions": [
     "https://web.whatsapp.com/*"
   ],
+  "background": {
+    "service_worker": "background.js"
+  },
   "web_accessible_resources": [
     {
       "resources": [ "icon.png" ],

@@ -3,6 +3,7 @@
 let allRows = [];
 let isRunning = false;
 let selectedImageFile = null;
+let pendingBackgroundState = null;
 const SUPPORTED_CONTACT_FILE_EXTENSIONS = [".xls", ".xlsx", ".csv"];
 
 function getFileExtension(fileName) {
@@ -369,6 +370,12 @@ function injectPanel() {
 
   // Try to add the header button
   injectHeaderButton();
+
+  if (pendingBackgroundState) {
+    applyBackgroundState(pendingBackgroundState);
+  } else {
+    syncBackgroundState();
+  }
 }
 
 /* ==== Header Button (Quick Toggle) ==== */
@@ -805,7 +812,7 @@ function setupEvents() {
   });
 
   // START
-  startBtn.onclick = (e) => {
+  startBtn.onclick = async (e) => {
     e.stopPropagation();
 
     if (isRunning) {
@@ -834,85 +841,139 @@ function setupEvents() {
       p.classList.add("minimized");
     }
 
-    startSendingProcess(queue, messages, selectedImageFile);
+    try {
+      setStatus("Preparando cola...");
+
+      const imagePayload = selectedImageFile
+        ? await fileToImagePayload(selectedImageFile)
+        : null;
+
+      const response = await sendRuntimeMessage({
+        type: "WP_START_SENDING",
+        payload: {
+          queue,
+          msgTemplates: messages,
+          imagePayload,
+          minTime: parseInt(document.getElementById("wp-min")?.value, 10) || 2,
+          maxTime: parseInt(document.getElementById("wp-max")?.value, 10) || 7,
+          sendButtonSelector:
+            userSettings.sendButtonSelector || DEFAULT_SETTINGS.sendButtonSelector,
+          onlyNewContacts: !!userSettings.onlyNewContacts
+        }
+      });
+
+      if (!response?.ok) {
+        throw new Error(response?.error || "No se pudo iniciar el proceso.");
+      }
+
+      applyBackgroundState(response.state);
+    } catch (error) {
+      console.error("Could not start sending process:", error);
+      setStatus("❌ No se pudo iniciar.");
+      toggleButtons(false);
+      alert(error.message || "No se pudo iniciar el proceso.");
+    }
   };
 
   // STOP
-  stopBtn.onclick = (e) => {
+  stopBtn.onclick = async (e) => {
     e.stopPropagation();
-    isRunning = false;
-    setStatus("⛔ Proceso detenido.");
-    toggleButtons(false);
+
+    try {
+      const response = await sendRuntimeMessage({ type: "WP_STOP_SENDING" });
+      if (response?.state) {
+        applyBackgroundState(response.state);
+      } else {
+        applyBackgroundState({
+          isRunning: false,
+          status: "⛔ Proceso detenido."
+        });
+      }
+    } catch (error) {
+      console.error("Could not stop sending process:", error);
+      applyBackgroundState({
+        isRunning: false,
+        status: "⛔ Proceso detenido."
+      });
+    }
   };
 }
 
 /* ==== Sending Engine ==== */
 
-async function startSendingProcess(queue, msgTemplates, imageFile) {
-  isRunning = true;
-  toggleButtons(true);
+async function processQueueItem(payload) {
+  const {
+    person,
+    position,
+    totalCount,
+    msgTemplates,
+    imagePayload,
+    sendButtonSelector,
+    onlyNewContacts
+  } = payload || {};
 
-  const minTime = parseInt(document.getElementById("wp-min")?.value) || 5;
-  const maxTime = parseInt(document.getElementById("wp-max")?.value) || 10;
+  if (!person?.phone) {
+    return {
+      status: "error",
+      message: "❌ Contacto inválido."
+    };
+  }
 
-  // User can't change this; fixed
-  const breakCount = 45;
-  const breakSec = 120;
+  const baseUrl = `https://web.whatsapp.com/send?phone=${encodeURIComponent(
+    person.phone
+  )}`;
 
-  let sentCount = 0;
+  setStatus(`Preparando (${position}/${totalCount}): ${person.ad}`);
 
-  for (let i = 0; i < queue.length; i++) {
-    if (!isRunning) break;
+  const link = document.createElement("a");
+  link.href = baseUrl;
+  link.style.display = "none";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 
-    const person = queue[i];
-    let skippedCurrentContact = false;
-    const baseUrl = `https://web.whatsapp.com/send?phone=${encodeURIComponent(
-      person.phone
-    )}`;
+  const chatReady = await waitForChatReady(12000);
+  if (!chatReady) {
+    const message = `❌ Chat no disponible: ${person.ad}`;
+    setStatus(message);
+    return {
+      status: "error",
+      message
+    };
+  }
 
-    setStatus(`Preparando (${i + 1}/${queue.length}): ${person.ad}`);
+  try {
+    let skip = false;
 
-    // Simulate link click
-    const link = document.createElement("a");
-    link.href = baseUrl;
-    link.style.display = "none";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    // Wait for the chat to load
-    await sleep(4000);
-
-    try {
-      const selector =
-        userSettings.sendButtonSelector || DEFAULT_SETTINGS.sendButtonSelector;
-
-      let skip = false;
-
-      if (userSettings.onlyNewContacts) {
-        setStatus(`Revisando historial (${i + 1}/${queue.length}): ${person.ad}`);
-        const hasHistory = hasExistingMessages();
-        if (hasHistory) {
-          skip = true;
-          skippedCurrentContact = true;
-          setStatus(`⏭ Omitido (chat existente): ${person.ad}`);
-        }
+    if (onlyNewContacts) {
+      setStatus(`Revisando historial (${position}/${totalCount}): ${person.ad}`);
+      const hasHistory = hasExistingMessages();
+      if (hasHistory) {
+        skip = true;
+        const message = `⏭ Omitido (chat existente): ${person.ad}`;
+        setStatus(message);
+        return {
+          status: "skipped",
+          message
+        };
       }
+    }
 
-      if (!skip && isRunning) {
-        const chosenTemplate = pickRandomTemplate(msgTemplates);
-        let text = chosenTemplate
-          // Turkish placeholders (backward compatible)
-          .replace(/{{Ad}}/g, person.ad)
-          .replace(/{{Soyad}}/g, person.soyad)
-          .replace(/{{Hitap}}/g, person.hitap || "")
-          // English placeholders
-          .replace(/{{FirstName}}/g, person.ad)
-          .replace(/{{LastName}}/g, person.soyad)
-          .replace(/{{Salutation}}/g, person.hitap || "");
+    if (!skip) {
+      const selector = sendButtonSelector || DEFAULT_SETTINGS.sendButtonSelector;
+      const chosenTemplate = pickRandomTemplate(msgTemplates);
+      let text = chosenTemplate
+        .replace(/{{Ad}}/g, person.ad)
+        .replace(/{{Soyad}}/g, person.soyad)
+        .replace(/{{Hitap}}/g, person.hitap || "")
+        .replace(/{{FirstName}}/g, person.ad)
+        .replace(/{{LastName}}/g, person.soyad)
+        .replace(/{{Salutation}}/g, person.hitap || "");
 
+      if (imagePayload?.dataUrl) {
+        const imageFile = imagePayloadToFile(imagePayload);
         if (imageFile) {
-          setStatus(`Adjuntando imagen (${i + 1}/${queue.length}): ${person.ad}`);
+          setStatus(`Adjuntando imagen (${position}/${totalCount}): ${person.ad}`);
           const imageSent = await sendImageAttachment(imageFile, selector);
           if (!imageSent) {
             console.warn("Image could not be sent for:", person.ad);
@@ -920,62 +981,64 @@ async function startSendingProcess(queue, msgTemplates, imageFile) {
             await sleep(1200);
           }
         }
-
-        let sendBtn = null;
-        const msgInput = await waitForMessageInput(10000);
-        if (msgInput) {
-          setMessageInputText(msgInput, text);
-          await sleep(200);
-          sendBtn = await waitForElement(selector, 10000);
-        } else {
-          // Fallback: prefill via URL if input not found
-          const urlWithText = `${baseUrl}&text=${encodeURIComponent(text)}`;
-          const fallbackLink = document.createElement("a");
-          fallbackLink.href = urlWithText;
-          fallbackLink.style.display = "none";
-          document.body.appendChild(fallbackLink);
-          fallbackLink.click();
-          document.body.removeChild(fallbackLink);
-          await sleep(4000);
-          sendBtn = await waitForElement(selector, 10000);
-        }
-
-        if (sendBtn && isRunning) {
-          sendBtn.click();
-          sentCount++;
-          setStatus(`✅ ${i + 1}/${queue.length} - ${person.ad}`);
-        } else {
-          setStatus(`❌ Botón no encontrado: ${person.ad}`);
-          console.warn("Send button not found for:", person.ad);
-        }
-      }
-    } catch (e) {
-      console.error("Error clicking send button:", e);
-      setStatus(`❌ Error: ${person.ad}`);
-    }
-
-    if (!isRunning) break;
-
-    // Do not wait after the last person
-    if (i < queue.length - 1) {
-      if (skippedCurrentContact) {
-        continue;
       }
 
-      if (breakCount > 0 && sentCount > 0 && sentCount % breakCount === 0) {
-        await sleepCount(breakSec, "Pausa");
+      let sendBtn = null;
+      const msgInput = await waitForMessageInput(10000);
+
+      if (msgInput) {
+        setMessageInputText(msgInput, text);
+        await sleep(200);
+        sendBtn = await waitForElement(selector, 10000);
       } else {
-        const wait = Math.floor(
-          Math.random() * (maxTime - minTime + 1) + minTime
-        );
-        await sleepCount(wait, "Esperando");
+        const urlWithText = `${baseUrl}&text=${encodeURIComponent(text)}`;
+        const fallbackLink = document.createElement("a");
+        fallbackLink.href = urlWithText;
+        fallbackLink.style.display = "none";
+        document.body.appendChild(fallbackLink);
+        fallbackLink.click();
+        document.body.removeChild(fallbackLink);
+
+        const chatReadyWithText = await waitForChatReady(12000);
+        if (!chatReadyWithText) {
+          const message = `❌ Chat no disponible: ${person.ad}`;
+          setStatus(message);
+          return {
+            status: "error",
+            message
+          };
+        }
+
+        sendBtn = await waitForElement(selector, 10000);
+      }
+
+      if (sendBtn) {
+        sendBtn.click();
+        const message = `✅ ${position}/${totalCount} - ${person.ad}`;
+        setStatus(message);
+        return {
+          status: "sent",
+          message
+        };
       }
     }
-  }
 
-  isRunning = false;
-  toggleButtons(false);
-  if (sentCount > 0) setStatus("🎉 Proceso finalizado.");
+    const message = `❌ Botón no encontrado: ${person.ad}`;
+    setStatus(message);
+    console.warn("Send button not found for:", person.ad);
+    return {
+      status: "error",
+      message
+    };
+  } catch (e) {
+    console.error("Error clicking send button:", e);
+    const message = `❌ Error: ${person.ad}`;
+    setStatus(message);
+    return {
+      status: "error",
+      message
+    };
+  }
 }
 
 /* ==== Helpers ==== */
@@ -1070,6 +1133,7 @@ function setStatus(msg) {
 }
 
 function toggleButtons(active) {
+  isRunning = active;
   const startBtn = document.getElementById("wp-start");
   const stopBtn = document.getElementById("wp-stop");
   if (!startBtn || !stopBtn) return;
@@ -1079,14 +1143,6 @@ function toggleButtons(active) {
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
-async function sleepCount(sec, label) {
-  while (sec > 0 && isRunning) {
-    setStatus(`⏳ ${label}: ${sec}`);
-    await sleep(1000);
-    sec--;
-  }
-}
 
 function waitForElement(selector, timeout) {
   return new Promise((resolve) => {
@@ -1118,6 +1174,32 @@ function isVisibleElement(el) {
     style.visibility !== "hidden" &&
     el.getClientRects().length > 0
   );
+}
+
+function isChatReady() {
+  const main = document.getElementById("main");
+  if (!main) return false;
+  return !!(getMessageInput() || main.querySelector("footer"));
+}
+
+function waitForChatReady(timeout = 12000) {
+  return new Promise((resolve) => {
+    if (isChatReady()) return resolve(true);
+
+    const observer = new MutationObserver(() => {
+      if (isChatReady()) {
+        observer.disconnect();
+        resolve(true);
+      }
+    });
+
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    setTimeout(() => {
+      observer.disconnect();
+      resolve(isChatReady());
+    }, timeout);
+  });
 }
 
 function findAttachmentButton() {
@@ -1257,7 +1339,111 @@ async function sendImageAttachment(file, sendButtonSelector) {
   return true;
 }
 
+function sendRuntimeMessage(message) {
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage(message, (response) => {
+      const runtimeError = chrome.runtime.lastError;
+      if (runtimeError) {
+        reject(new Error(runtimeError.message));
+        return;
+      }
+      resolve(response);
+    });
+  });
+}
+
+function applyBackgroundState(state) {
+  if (!state) return;
+  pendingBackgroundState = state;
+  toggleButtons(!!state.isRunning);
+  setStatus(state.status || "Listo.");
+}
+
+async function syncBackgroundState() {
+  try {
+    const response = await sendRuntimeMessage({ type: "WP_GET_STATE" });
+    if (response?.state) {
+      applyBackgroundState(response.state);
+    }
+  } catch (error) {
+    console.warn("Could not sync background state:", error);
+  }
+}
+
+function fileToImagePayload(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      resolve({
+        name: file.name || "image",
+        type: file.type || "image/png",
+        lastModified: file.lastModified || Date.now(),
+        dataUrl: String(reader.result || "")
+      });
+    };
+
+    reader.onerror = () => {
+      reject(new Error("No se pudo leer la imagen seleccionada."));
+    };
+
+    reader.readAsDataURL(file);
+  });
+}
+
+function imagePayloadToFile(imagePayload) {
+  try {
+    if (!imagePayload?.dataUrl) return null;
+
+    const [header, base64] = String(imagePayload.dataUrl).split(",");
+    if (!header || !base64) return null;
+
+    const mimeMatch = header.match(/data:(.*?);base64/);
+    const mimeType = imagePayload.type || mimeMatch?.[1] || "image/png";
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+
+    return new File([bytes], imagePayload.name || "image", {
+      type: mimeType,
+      lastModified: imagePayload.lastModified || Date.now()
+    });
+  } catch (error) {
+    console.error("Could not rebuild image file:", error);
+    return null;
+  }
+}
+
 /* ==== Watcher ==== */
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message?.type === "WP_EXECUTE_SEND") {
+    processQueueItem(message.payload)
+      .then((result) => sendResponse({ ok: true, result }))
+      .catch((error) => {
+        console.error("Queue item execution failed:", error);
+        sendResponse({
+          ok: true,
+          result: {
+            status: "error",
+            message: "❌ Error ejecutando el envío."
+          }
+        });
+      });
+    return true;
+  }
+
+  if (message?.type === "WP_UPDATE_STATE") {
+    applyBackgroundState(message.payload);
+    sendResponse({ ok: true });
+    return false;
+  }
+
+  return false;
+});
 
 window.addEventListener("load", injectPanel);
 
