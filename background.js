@@ -3,6 +3,7 @@ const TASK_ALARM_NAME = "wpSenderNextStep";
 const DEFAULT_BREAK_COUNT = 45;
 const DEFAULT_BREAK_SEC = 120;
 const DEFAULT_SEND_SELECTOR = 'span[data-icon="wds-ic-send-filled"]';
+let executeStepLock = false;
 
 async function reloadWhatsAppTabs() {
   const tabs = await chrome.tabs.query({ url: "https://web.whatsapp.com/*" });
@@ -218,6 +219,13 @@ async function handleGetState() {
 }
 
 async function executeTaskStep() {
+  if (executeStepLock) {
+    return;
+  }
+
+  executeStepLock = true;
+
+  try {
   const task = await getTask();
   if (!task?.active) {
     await chrome.alarms.clear(TASK_ALARM_NAME);
@@ -328,6 +336,9 @@ async function executeTaskStep() {
   await setTask(scheduledTask);
   await scheduleNextRun(scheduledTask.nextRunAt);
   await pushState(scheduledTask);
+  } finally {
+    executeStepLock = false;
+  }
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
