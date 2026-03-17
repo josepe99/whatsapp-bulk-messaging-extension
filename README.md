@@ -1,14 +1,14 @@
 # 📱 WhatsApp Bulk Message Sender
 
-This extension lets you send automated, personalized bulk messages to contacts in your Excel list via WhatsApp Web. Its modern UI and privacy features improve your WhatsApp experience.
+This extension lets you send automated, personalized bulk messages to contacts in your spreadsheet or CSV list via WhatsApp Web. Its modern UI and privacy features improve your WhatsApp experience.
 
 ![Logo](icon.png)
 
 ## 🚀 Features
 
-- **Excel Bulk Sending**: Upload contact lists in `.xlsx` format.
+- **Spreadsheet Bulk Sending**: Upload contact lists in `.xls`, `.xlsx`, or `.csv` format.
 - **Personalized Messages**: Use `{FirstName}`, `{LastName}`, and `{Salutation}` to create unique messages for each person. (Turkish placeholders `{Ad}`, `{Soyad}`, `{Hitap}` are also supported.)
-- **Tag Filtering**: Send messages based on tags in the Excel file.
+- **Tag Filtering**: Send messages based on tags in the imported file.
 - **Privacy Mode**: Blur your chat list and/or the active chat content with one click. Ideal for taking screenshots or working in public.
 - **Quick Access**: Toggle privacy mode instantly by clicking the **Eye icon** in the WhatsApp header (next to the New Chat button).
 - **Native UI**: A modern design that matches WhatsApp Web's Light/Dark themes.
@@ -27,8 +27,8 @@ This extension lets you send automated, personalized bulk messages to contacts i
 
 ## 📖 User Guide
 
-### 1. Preparing the Excel File
-Your Excel headers should follow this format:
+### 1. Preparing the File
+Your spreadsheet headers should follow this format:
 
 | Number | FirstName | LastName | Salutation | Tag1 |
 | :--- | :--- | :--- | :--- | :--- |
@@ -44,7 +44,7 @@ Turkish headers are also supported:
 
 1. Open **WhatsApp Web** (`web.whatsapp.com`).
 2. You will see the extension panel on the left.
-3. Click **Choose File** and upload your Excel file.
+3. Click **Choose File** and upload your `.xls`, `.xlsx`, or `.csv` file.
 4. Select your target **Tag**.
 5. Write your message. Click the `{FirstName}` / `{LastName}` / `{Salutation}` buttons to insert variables.
 6. Click **START** and relax!

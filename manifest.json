@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Whatsapp Masivo bro - Enviar mensajes masivos en WhatsApp Web",
   "version": "2.0",
-  "description": "Bot de enviar mensajes masivos en WhatsApp Web con soporte para archivos Excel.",
+  "description": "Bot de enviar mensajes masivos en WhatsApp Web con soporte para archivos XLS, XLSX y CSV.",
   "icons": {
     "16": "icon.png",
     "48": "icon.png",

@@ -3,6 +3,17 @@
 let allRows = [];
 let isRunning = false;
 let selectedImageFile = null;
+const SUPPORTED_CONTACT_FILE_EXTENSIONS = [".xls", ".xlsx", ".csv"];
+
+function getFileExtension(fileName) {
+  const normalizedName = String(fileName || "").trim().toLowerCase();
+  const dotIndex = normalizedName.lastIndexOf(".");
+  return dotIndex >= 0 ? normalizedName.slice(dotIndex) : "";
+}
+
+function isSupportedContactFile(fileName) {
+  return SUPPORTED_CONTACT_FILE_EXTENSIONS.includes(getFileExtension(fileName));
+}
 
 function normalizeColumnName(columnName) {
   return String(columnName || "")
@@ -154,19 +165,19 @@ function injectPanel() {
         <section class="wp-card wp-card-intro">
           <div class="wp-card-intro-main">
             <div class="wp-card-intro-title">Panel de envíos masivos</div>
-            <div class="wp-card-intro-sub">Importa contactos desde Excel, elige una etiqueta, escribe el mensaje y envíalo automáticamente.</div>
+            <div class="wp-card-intro-sub">Importa contactos desde un archivo XLS, XLSX o CSV, elige una etiqueta, escribe el mensaje y envíalo automáticamente.</div>
           </div>
           <div class="wp-card-intro-pill">v2.0</div>
         </section>
 
         <!-- Step 1 + Step 2 side by side -->
         <div class="wp-grid-2">
-          <!-- Step 1: Excel -->
+          <!-- Step 1: Contact file -->
           <section class="wp-card">
             <div class="wp-card-head">
               <div class="wp-card-head-left">
-                <span class="wp-card-title">Archivo Excel</span>
-                <span class="wp-card-sub">Tu lista de contactos en formato .xlsx</span>
+                <span class="wp-card-title">Archivo de contactos</span>
+                <span class="wp-card-sub">Tu lista de contactos en formato .xls, .xlsx o .csv</span>
               </div>
               <span class="wp-step-pill">1</span>
             </div>
@@ -174,7 +185,7 @@ function injectPanel() {
             <div class="wp-file-row">
               <label class="wp-file-btn" style="cursor:pointer;">
                 Elegir archivo
-                <input type="file" id="wp-file" accept=".xlsx" />
+                <input type="file" id="wp-file" accept=".xls,.xlsx,.csv,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
               </label>
               <button type="button" id="wp-file-reset" class="wp-file-reset-btn">Limpiar</button>
             </div>
@@ -640,18 +651,36 @@ function setupEvents() {
     };
   }
 
-  // Read Excel
+  // Read contacts file
   fileInput.addEventListener("change", (e) => {
     const file = e.target.files[0];
     if (!file) return;
+
+    if (!isSupportedContactFile(file.name)) {
+      fileInput.value = "";
+      allRows = [];
+      tagSelect.innerHTML = '<option value="">Formato no compatible</option>';
+      tagSelect.disabled = true;
+      document.getElementById("wp-file-info").innerText =
+        "❌ Formato no compatible. Usa un archivo .xls, .xlsx o .csv.";
+      startBtn.disabled = true;
+      startBtn.innerText = "INICIAR";
+      alert("Formato no compatible. Usa un archivo .xls, .xlsx o .csv.");
+      return;
+    }
 
     const reader = new FileReader();
     reader.onload = (elem) => {
       try {
         const data = new Uint8Array(elem.target.result);
         const workbook = XLSX.read(data, { type: "array" });
+        const firstSheetName = workbook.SheetNames[0];
+        if (!firstSheetName || !workbook.Sheets[firstSheetName]) {
+          throw new Error("No sheet found in imported file.");
+        }
+
         allRows = XLSX.utils
-          .sheet_to_json(workbook.Sheets[workbook.SheetNames[0]])
+          .sheet_to_json(workbook.Sheets[firstSheetName])
           .map(normalizeImportedRow);
 
         const tags = new Set();
@@ -693,7 +722,7 @@ function setupEvents() {
 
         document.getElementById("wp-file-info").innerText =
           totalNumbers > 0
-            ? `✅ ${totalNumbers} números válidos.`
+            ? `✅ ${file.name}: ${totalNumbers} números válidos.`
             : "No se encontraron números válidos.";
         startBtn.disabled = true;
         startBtn.innerText = "INICIAR";
@@ -702,10 +731,11 @@ function setupEvents() {
         allRows = [];
         tagSelect.innerHTML = '<option value="">No se pudo leer el archivo</option>';
         tagSelect.disabled = true;
-        document.getElementById("wp-file-info").innerText = "❌ No se pudo leer el archivo.";
+        document.getElementById("wp-file-info").innerText =
+          "❌ No se pudo leer el archivo. Verifica que sea .xls, .xlsx o .csv.";
         startBtn.disabled = true;
         startBtn.innerText = "INICIAR";
-        alert("No se pudo leer el archivo.");
+        alert("No se pudo leer el archivo. Verifica que sea .xls, .xlsx o .csv.");
       }
     };
     reader.readAsArrayBuffer(file);
@@ -732,7 +762,7 @@ function setupEvents() {
     };
   }
 
-  // Clear Excel
+  // Clear contacts file
   if (fileResetBtn) {
     fileResetBtn.onclick = (e) => {
       e.stopPropagation();
