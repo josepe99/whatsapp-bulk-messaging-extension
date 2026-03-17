@@ -1032,34 +1032,25 @@ async function processQueueItem(payload) {
       }
 
       let sendBtn = null;
-      const msgInput = await waitForMessageInput(10000);
+      const msgInput = await ensureMessageLoaded(baseUrl, text);
 
-      if (msgInput) {
-        setMessageInputText(msgInput, text);
-        await sleep(200);
-        sendBtn = await waitForVisibleSendButton(selector, 12000, {
-          requireFooter: true
-        });
-      } else {
-        const urlWithText = `${baseUrl}&text=${encodeURIComponent(text)}`;
-        const fallbackLink = document.createElement("a");
-        fallbackLink.href = urlWithText;
-        fallbackLink.style.display = "none";
-        document.body.appendChild(fallbackLink);
-        fallbackLink.click();
-        document.body.removeChild(fallbackLink);
+      if (!msgInput) {
+        const message = `❌ No se pudo cargar el mensaje: ${personLabel}`;
+        setStatus(message);
+        return {
+          status: "error",
+          message
+        };
+      }
 
-        const chatReadyWithText = await waitForChatReady(12000);
-        if (!chatReadyWithText) {
-          const message = `❌ Chat no disponible: ${personLabel}`;
-          setStatus(message);
-          return {
-            status: "error",
-            message
-          };
-        }
+      sendBtn = await waitForVisibleSendButton(selector, 12000, {
+        requireFooter: true
+      });
 
-        sendBtn = await waitForVisibleSendButton(selector, 12000, {
+      if (!sendBtn) {
+        setStatus(`Reintentando envío (${position}/${totalCount}): ${personLabel}`);
+        await ensureMessageLoaded(baseUrl, text);
+        sendBtn = await waitForVisibleSendButton(selector, 15000, {
           requireFooter: true
         });
       }
@@ -1111,6 +1102,14 @@ function minutesToSeconds(minutes) {
   return Math.max(1, Math.round(Number(minutes) * 60));
 }
 
+function normalizeComposerText(text) {
+  return String(text || "")
+    .replace(/\u00a0/g, " ")
+    .replace(/\r\n/g, "\n")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function formatNextContact(nextContact) {
   if (!nextContact?.name && !nextContact?.phoneTail) {
     return "Siguiente: sin cola pendiente.";
@@ -1119,6 +1118,14 @@ function formatNextContact(nextContact) {
   const name = nextContact.name || "Sin nombre";
   const phoneTail = nextContact.phoneTail || "***";
   return `Siguiente: ${name} (${phoneTail})`;
+}
+
+function formatNextContactWithEta(nextContact, nextRunAt) {
+  const baseLabel = formatNextContact(nextContact);
+  if (!nextRunAt || !nextContact) return baseLabel;
+
+  const secondsLeft = Math.max(0, Math.ceil((nextRunAt - Date.now()) / 1000));
+  return `${baseLabel} en ${secondsLeft}s`;
 }
 
 function formatPersonLabel(person) {
@@ -1186,6 +1193,12 @@ function syncCountdownDisplay(state) {
 
   countdownTimerId = window.setInterval(() => {
     updateDisplayedStatusFromState(pendingBackgroundState);
+    setNextContactStatus(
+      pendingBackgroundState?.isRunning
+        ? pendingBackgroundState?.nextContact || null
+        : previewNextContact,
+      pendingBackgroundState?.isRunning ? pendingBackgroundState?.nextRunAt : null
+    );
 
     if (!pendingBackgroundState?.nextRunAt || Date.now() >= pendingBackgroundState.nextRunAt) {
       clearCountdownTimer();
@@ -1200,6 +1213,11 @@ function getMessageInput() {
     document.querySelector('div[contenteditable="true"][data-tab="6"]') ||
     document.querySelector('div[contenteditable="true"][role="textbox"]')
   );
+}
+
+function getMessageInputValue(input = getMessageInput()) {
+  if (!input) return "";
+  return normalizeComposerText(input.innerText || input.textContent || "");
 }
 
 function waitForMessageInput(timeout) {
@@ -1242,6 +1260,43 @@ function setMessageInputText(input, text) {
   }
 }
 
+async function openChatWithText(baseUrl, text) {
+  const link = document.createElement("a");
+  link.href = `${baseUrl}&text=${encodeURIComponent(text)}`;
+  link.style.display = "none";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  return waitForChatReady(15000);
+}
+
+async function ensureMessageLoaded(baseUrl, text) {
+  const expectedText = normalizeComposerText(text);
+  const chatReady = await openChatWithText(baseUrl, text);
+  if (!chatReady) return null;
+
+  let msgInput = await waitForMessageInput(10000);
+  if (!msgInput) return null;
+
+  if (getMessageInputValue(msgInput) === expectedText) {
+    return msgInput;
+  }
+
+  setMessageInputText(msgInput, text);
+  await sleep(300);
+
+  msgInput = getMessageInput() || msgInput;
+  if (getMessageInputValue(msgInput) === expectedText) {
+    return msgInput;
+  }
+
+  const secondChatReady = await openChatWithText(baseUrl, text);
+  if (!secondChatReady) return msgInput;
+
+  msgInput = await waitForMessageInput(10000);
+  return msgInput;
+}
+
 function hasExistingMessages() {
   const main = document.getElementById("main");
   if (!main) return false;
@@ -1275,10 +1330,10 @@ function setStatus(msg) {
   if (detailDot) detailDot.classList.toggle("active", isActive);
 }
 
-function setNextContactStatus(nextContact) {
+function setNextContactStatus(nextContact, nextRunAt = null) {
   const nextContactEl = document.getElementById("wp-next-contact");
   if (!nextContactEl) return;
-  nextContactEl.innerText = formatNextContact(nextContact);
+  nextContactEl.innerText = formatNextContactWithEta(nextContact, nextRunAt);
 }
 
 function toggleButtons(active) {
@@ -1520,7 +1575,8 @@ function applyBackgroundState(state) {
   setNextContactStatus(
     pendingBackgroundState?.isRunning
       ? pendingBackgroundState?.nextContact || null
-      : previewNextContact
+      : previewNextContact,
+    pendingBackgroundState?.isRunning ? pendingBackgroundState?.nextRunAt : null
   );
 }
 
