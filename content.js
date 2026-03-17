@@ -4,6 +4,8 @@ let allRows = [];
 let isRunning = false;
 let selectedImageFile = null;
 let pendingBackgroundState = null;
+let previewNextContact = null;
+let countdownTimerId = null;
 const SUPPORTED_CONTACT_FILE_EXTENSIONS = [".xls", ".xlsx", ".csv"];
 const DEFAULT_MIN_MINUTES = 1;
 const DEFAULT_MAX_MINUTES = 2;
@@ -121,6 +123,20 @@ function buildQueueForTag(tag) {
         hitap: getRowValue(row, ["hitap", "salutation"])
       };
     });
+}
+
+function createPreviewContact(person) {
+  if (!person) return null;
+
+  const digits = String(person.phone || "").replace(/\D/g, "");
+  return {
+    name: person.ad || "Sin nombre",
+    phoneTail: digits ? `***${digits.slice(-3)}` : "***"
+  };
+}
+
+function getDefaultPreviewQueue() {
+  return buildQueueForTag("__ALL__");
 }
 
 /* ==== Panel Injection ==== */
@@ -677,6 +693,8 @@ function setupEvents() {
         "❌ Formato no compatible. Usa un archivo .xls, .xlsx o .csv.";
       startBtn.disabled = true;
       startBtn.innerText = "INICIAR";
+      previewNextContact = null;
+      applyBackgroundState(pendingBackgroundState);
       alert("Formato no compatible. Usa un archivo .xls, .xlsx o .csv.");
       return;
     }
@@ -728,16 +746,21 @@ function setupEvents() {
           optAll.textContent = `Todos (${totalNumbers})`;
           tagSelect.appendChild(optAll);
           tagSelect.disabled = false;
+          tagSelect.value = "__ALL__";
+          startBtn.disabled = false;
+          startBtn.innerText = `INICIAR (${totalNumbers})`;
         } else {
           tagSelect.disabled = true;
+          startBtn.disabled = true;
+          startBtn.innerText = "INICIAR";
         }
 
         document.getElementById("wp-file-info").innerText =
           totalNumbers > 0
             ? `✅ ${file.name}: ${totalNumbers} números válidos.`
             : "No se encontraron números válidos.";
-        startBtn.disabled = true;
-        startBtn.innerText = "INICIAR";
+        previewNextContact = createPreviewContact(getDefaultPreviewQueue()[0] || null);
+        applyBackgroundState(pendingBackgroundState);
       } catch (err) {
         console.error(err);
         allRows = [];
@@ -747,6 +770,8 @@ function setupEvents() {
           "❌ No se pudo leer el archivo. Verifica que sea .xls, .xlsx o .csv.";
         startBtn.disabled = true;
         startBtn.innerText = "INICIAR";
+        previewNextContact = null;
+        applyBackgroundState(pendingBackgroundState);
         alert("No se pudo leer el archivo. Verifica que sea .xls, .xlsx o .csv.");
       }
     };
@@ -785,6 +810,8 @@ function setupEvents() {
       document.getElementById("wp-file-info").innerText = "Ningún archivo seleccionado.";
       startBtn.disabled = true;
       startBtn.innerText = "INICIAR";
+      previewNextContact = null;
+      applyBackgroundState(pendingBackgroundState);
     };
   }
 
@@ -796,6 +823,8 @@ function setupEvents() {
 
     startBtn.disabled = count === 0;
     startBtn.innerText = count > 0 ? `INICIAR (${count})` : "INICIAR";
+    previewNextContact = createPreviewContact(queue[0] || getDefaultPreviewQueue()[0] || null);
+    applyBackgroundState(pendingBackgroundState);
   });
 
   // Variable buttons (add one space at the end)
@@ -1085,6 +1114,66 @@ function formatNextContact(nextContact) {
   const name = nextContact.name || "Sin nombre";
   const phoneTail = nextContact.phoneTail || "***";
   return `Siguiente: ${name} (${phoneTail})`;
+}
+
+function clearCountdownTimer() {
+  if (!countdownTimerId) return;
+  window.clearInterval(countdownTimerId);
+  countdownTimerId = null;
+}
+
+function formatCountdownStatus(baseStatus, nextRunAt) {
+  if (!nextRunAt) return baseStatus || "Listo.";
+
+  const secondsLeft = Math.max(0, Math.ceil((nextRunAt - Date.now()) / 1000));
+
+  if (baseStatus.startsWith("⏳ Esperando")) {
+    return `⏳ Esperando: ${secondsLeft}s`;
+  }
+
+  if (baseStatus.startsWith("⏳ Pausa")) {
+    return `⏳ Pausa: ${secondsLeft}s`;
+  }
+
+  if (baseStatus.startsWith("⏳ Esperando a que WhatsApp Web esté lista")) {
+    return `⏳ Esperando a que WhatsApp Web esté lista... ${secondsLeft}s`;
+  }
+
+  return baseStatus || "Listo.";
+}
+
+function updateDisplayedStatusFromState(state) {
+  if (!state) {
+    setStatus("Listo.");
+    return;
+  }
+
+  setStatus(formatCountdownStatus(state.status || "Listo.", state.nextRunAt));
+}
+
+function syncCountdownDisplay(state) {
+  clearCountdownTimer();
+  updateDisplayedStatusFromState(state);
+
+  if (!state?.isRunning || !state?.nextRunAt) return;
+
+  const shouldCount =
+    typeof state.status === "string" &&
+    (
+      state.status.startsWith("⏳ Esperando") ||
+      state.status.startsWith("⏳ Pausa") ||
+      state.status.startsWith("⏳ Esperando a que WhatsApp Web esté lista")
+    );
+
+  if (!shouldCount) return;
+
+  countdownTimerId = window.setInterval(() => {
+    updateDisplayedStatusFromState(pendingBackgroundState);
+
+    if (!pendingBackgroundState?.nextRunAt || Date.now() >= pendingBackgroundState.nextRunAt) {
+      clearCountdownTimer();
+    }
+  }, 1000);
 }
 
 function getMessageInput() {
@@ -1396,11 +1485,14 @@ function sendRuntimeMessage(message) {
 }
 
 function applyBackgroundState(state) {
-  if (!state) return;
-  pendingBackgroundState = state;
-  toggleButtons(!!state.isRunning);
-  setStatus(state.status || "Listo.");
-  setNextContactStatus(state.nextContact || null);
+  pendingBackgroundState = state || null;
+  toggleButtons(!!pendingBackgroundState?.isRunning);
+  syncCountdownDisplay(pendingBackgroundState);
+  setNextContactStatus(
+    pendingBackgroundState?.isRunning
+      ? pendingBackgroundState?.nextContact || null
+      : previewNextContact
+  );
 }
 
 async function syncBackgroundState() {
