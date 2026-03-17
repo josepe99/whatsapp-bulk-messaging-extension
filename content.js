@@ -1150,13 +1150,16 @@ function formatCountdownStatus(baseStatus, nextRunAt) {
   if (!nextRunAt) return baseStatus || "Listo.";
 
   const secondsLeft = Math.max(0, Math.ceil((nextRunAt - Date.now()) / 1000));
+  const waitSuffix = String(baseStatus || "").includes("·")
+    ? ` ·${String(baseStatus).split("·").slice(1).join("·").trim() ? ` ${String(baseStatus).split("·").slice(1).join("·").trim()}` : ""}`
+    : "";
 
   if (baseStatus.startsWith("⏳ Esperando")) {
-    return `⏳ Esperando: ${secondsLeft}s`;
+    return `⏳ Esperando: ${secondsLeft}s${waitSuffix}`;
   }
 
   if (baseStatus.startsWith("⏳ Pausa")) {
-    return `⏳ Pausa: ${secondsLeft}s`;
+    return `⏳ Pausa: ${secondsLeft}s${waitSuffix}`;
   }
 
   if (baseStatus.startsWith("⏳ Esperando a que WhatsApp Web esté lista")) {
@@ -1220,6 +1223,22 @@ function getMessageInputValue(input = getMessageInput()) {
   return normalizeComposerText(input.innerText || input.textContent || "");
 }
 
+async function waitForComposerText(expectedText, timeout = 5000) {
+  const expected = normalizeComposerText(expectedText);
+  const startedAt = Date.now();
+
+  while (Date.now() - startedAt < timeout) {
+    const currentValue = getMessageInputValue();
+    if (currentValue === expected) {
+      return getMessageInput();
+    }
+
+    await sleep(200);
+  }
+
+  return getMessageInput();
+}
+
 function waitForMessageInput(timeout) {
   return new Promise((resolve) => {
     const elNow = getMessageInput();
@@ -1272,29 +1291,21 @@ async function openChatWithText(baseUrl, text) {
 
 async function ensureMessageLoaded(baseUrl, text) {
   const expectedText = normalizeComposerText(text);
-  const chatReady = await openChatWithText(baseUrl, text);
-  if (!chatReady) return null;
 
-  let msgInput = await waitForMessageInput(10000);
-  if (!msgInput) return null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const chatReady = await openChatWithText(baseUrl, text);
+    if (!chatReady) continue;
 
-  if (getMessageInputValue(msgInput) === expectedText) {
-    return msgInput;
+    const msgInput = await waitForMessageInput(10000);
+    if (!msgInput) continue;
+
+    const resolvedInput = await waitForComposerText(expectedText, 5000);
+    if (getMessageInputValue(resolvedInput || msgInput) === expectedText) {
+      return resolvedInput || msgInput;
+    }
   }
 
-  setMessageInputText(msgInput, text);
-  await sleep(300);
-
-  msgInput = getMessageInput() || msgInput;
-  if (getMessageInputValue(msgInput) === expectedText) {
-    return msgInput;
-  }
-
-  const secondChatReady = await openChatWithText(baseUrl, text);
-  if (!secondChatReady) return msgInput;
-
-  msgInput = await waitForMessageInput(10000);
-  return msgInput;
+  return null;
 }
 
 function hasExistingMessages() {
@@ -1483,29 +1494,30 @@ function waitForMediaFileInput(timeout = 8000) {
 function getAnyVisibleSendButton(selector, options = {}) {
   const { excludeFooter = false, requireFooter = false } = options;
   const buttons = Array.from(document.querySelectorAll(selector));
-  return (
-    buttons.find((btn) => {
-      const clickTarget =
-        btn.closest("button") ||
-        btn.closest('[role="button"]') ||
-        btn;
 
-      if (!isVisibleElement(clickTarget) || clickTarget.closest("#wp-custom-panel")) {
-        return false;
-      }
+  for (const btn of buttons) {
+    const clickTarget =
+      btn.closest("button") ||
+      btn.closest('[role="button"]') ||
+      btn;
 
-      const isFooterButton = !!clickTarget.closest("footer");
-      if (excludeFooter && isFooterButton) {
-        return false;
-      }
+    if (!isVisibleElement(clickTarget) || clickTarget.closest("#wp-custom-panel")) {
+      continue;
+    }
 
-      if (requireFooter && !isFooterButton) {
-        return false;
-      }
+    const isFooterButton = !!clickTarget.closest("footer");
+    if (excludeFooter && isFooterButton) {
+      continue;
+    }
 
-      return true;
-    }) || null
-  );
+    if (requireFooter && !isFooterButton) {
+      continue;
+    }
+
+    return clickTarget;
+  }
+
+  return null;
 }
 
 async function waitForVisibleSendButton(selector, timeout = 10000, options = {}) {

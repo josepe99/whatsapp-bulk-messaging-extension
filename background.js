@@ -48,6 +48,11 @@ function getNextContact(task) {
   };
 }
 
+function formatNextContactLabel(contact) {
+  if (!contact) return "sin cola pendiente";
+  return `${contact.name} (${contact.phoneTail})`;
+}
+
 function pickRandomTemplate(templates, previousIndex = -1) {
   if (!Array.isArray(templates) || templates.length === 0) {
     return { template: "", templateIndex: -1 };
@@ -301,15 +306,16 @@ async function executeTaskStep() {
 
   let delayMs = 150;
   let statusMessage = result.message || "Esperando siguiente contacto...";
+  const upcomingContact = getNextContact(nextTask);
 
   if (result.status !== "skipped") {
     if (nextTask.breakCount > 0 && nextTask.sentCount > 0 && nextTask.sentCount % nextTask.breakCount === 0) {
       delayMs = nextTask.breakSec * 1000;
-      statusMessage = `⏳ Pausa: ${nextTask.breakSec}s`;
+      statusMessage = `⏳ Pausa: ${nextTask.breakSec}s · Siguiente: ${formatNextContactLabel(upcomingContact)}`;
     } else {
       const waitSeconds = randomIntInclusive(nextTask.minTime, nextTask.maxTime);
       delayMs = waitSeconds * 1000;
-      statusMessage = `⏳ Esperando: ${waitSeconds}s`;
+      statusMessage = `⏳ Esperando: ${waitSeconds}s · Siguiente: ${formatNextContactLabel(upcomingContact)}`;
     }
   }
 
