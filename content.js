@@ -970,8 +970,9 @@ async function processQueueItem(payload) {
   const baseUrl = `https://web.whatsapp.com/send?phone=${encodeURIComponent(
     person.phone
   )}`;
+  const personLabel = formatPersonLabel(person);
 
-  setStatus(`Preparando (${position}/${totalCount}): ${person.ad}`);
+  setStatus(`Preparando (${position}/${totalCount}): ${personLabel}`);
 
   const link = document.createElement("a");
   link.href = baseUrl;
@@ -982,7 +983,7 @@ async function processQueueItem(payload) {
 
   const chatReady = await waitForChatReady(12000);
   if (!chatReady) {
-    const message = `❌ Chat no disponible: ${person.ad}`;
+    const message = `❌ Chat no disponible: ${personLabel}`;
     setStatus(message);
     return {
       status: "error",
@@ -994,11 +995,11 @@ async function processQueueItem(payload) {
     let skip = false;
 
     if (onlyNewContacts) {
-      setStatus(`Revisando historial (${position}/${totalCount}): ${person.ad}`);
+      setStatus(`Revisando historial (${position}/${totalCount}): ${personLabel}`);
       const hasHistory = hasExistingMessages();
       if (hasHistory) {
         skip = true;
-        const message = `⏭ Omitido (chat existente): ${person.ad}`;
+        const message = `⏭ Omitido (chat existente): ${personLabel}`;
         setStatus(message);
         return {
           status: "skipped",
@@ -1020,11 +1021,11 @@ async function processQueueItem(payload) {
       if (imagePayload?.dataUrl) {
         const imageFile = imagePayloadToFile(imagePayload);
         if (imageFile) {
-          setStatus(`Adjuntando imagen (${position}/${totalCount}): ${person.ad}`);
+          setStatus(`Adjuntando imagen (${position}/${totalCount}): ${personLabel}`);
           const imageSent = await sendImageAttachment(imageFile, selector);
           if (!imageSent) {
-            console.warn("Image could not be sent for:", person.ad);
-            setStatus(`⚠️ Imagen no enviada, continuando con texto: ${person.ad}`);
+            console.warn("Image could not be sent for:", personLabel);
+            setStatus(`⚠️ Imagen no enviada, continuando con texto: ${personLabel}`);
             await sleep(1200);
           }
         }
@@ -1036,7 +1037,9 @@ async function processQueueItem(payload) {
       if (msgInput) {
         setMessageInputText(msgInput, text);
         await sleep(200);
-        sendBtn = await waitForElement(selector, 10000);
+        sendBtn = await waitForVisibleSendButton(selector, 12000, {
+          requireFooter: true
+        });
       } else {
         const urlWithText = `${baseUrl}&text=${encodeURIComponent(text)}`;
         const fallbackLink = document.createElement("a");
@@ -1048,7 +1051,7 @@ async function processQueueItem(payload) {
 
         const chatReadyWithText = await waitForChatReady(12000);
         if (!chatReadyWithText) {
-          const message = `❌ Chat no disponible: ${person.ad}`;
+          const message = `❌ Chat no disponible: ${personLabel}`;
           setStatus(message);
           return {
             status: "error",
@@ -1056,12 +1059,14 @@ async function processQueueItem(payload) {
           };
         }
 
-        sendBtn = await waitForElement(selector, 10000);
+        sendBtn = await waitForVisibleSendButton(selector, 12000, {
+          requireFooter: true
+        });
       }
 
       if (sendBtn) {
         sendBtn.click();
-        const message = `✅ ${position}/${totalCount} - ${person.ad}`;
+        const message = `✅ ${position}/${totalCount} - ${personLabel}`;
         setStatus(message);
         return {
           status: "sent",
@@ -1070,16 +1075,16 @@ async function processQueueItem(payload) {
       }
     }
 
-    const message = `❌ Botón no encontrado: ${person.ad}`;
+    const message = `❌ Botón no encontrado: ${personLabel}`;
     setStatus(message);
-    console.warn("Send button not found for:", person.ad);
+    console.warn("Send button not found for:", personLabel);
     return {
       status: "error",
       message
     };
   } catch (e) {
     console.error("Error clicking send button:", e);
-    const message = `❌ Error: ${person.ad}`;
+    const message = `❌ Error: ${personLabel}`;
     setStatus(message);
     return {
       status: "error",
@@ -1114,6 +1119,18 @@ function formatNextContact(nextContact) {
   const name = nextContact.name || "Sin nombre";
   const phoneTail = nextContact.phoneTail || "***";
   return `Siguiente: ${name} (${phoneTail})`;
+}
+
+function formatPersonLabel(person) {
+  if (!person) return "Contacto sin datos";
+
+  const displayName = String(person.ad || "").trim();
+  if (displayName) return displayName;
+
+  const digits = String(person.phone || "").replace(/\D/g, "");
+  if (digits) return `***${digits.slice(-3)}`;
+
+  return "Contacto sin datos";
 }
 
 function clearCountdownTimer() {
@@ -1409,16 +1426,28 @@ function waitForMediaFileInput(timeout = 8000) {
 }
 
 function getAnyVisibleSendButton(selector, options = {}) {
-  const { excludeFooter = false } = options;
+  const { excludeFooter = false, requireFooter = false } = options;
   const buttons = Array.from(document.querySelectorAll(selector));
   return (
     buttons.find((btn) => {
-      if (!isVisibleElement(btn) || btn.closest("#wp-custom-panel")) {
+      const clickTarget =
+        btn.closest("button") ||
+        btn.closest('[role="button"]') ||
+        btn;
+
+      if (!isVisibleElement(clickTarget) || clickTarget.closest("#wp-custom-panel")) {
         return false;
       }
-      if (excludeFooter && btn.closest("footer")) {
+
+      const isFooterButton = !!clickTarget.closest("footer");
+      if (excludeFooter && isFooterButton) {
         return false;
       }
+
+      if (requireFooter && !isFooterButton) {
+        return false;
+      }
+
       return true;
     }) || null
   );

@@ -4,6 +4,22 @@ const DEFAULT_BREAK_COUNT = 45;
 const DEFAULT_BREAK_SEC = 120;
 const DEFAULT_SEND_SELECTOR = 'span[data-icon="wds-ic-send-filled"]';
 
+async function reloadWhatsAppTabs() {
+  const tabs = await chrome.tabs.query({ url: "https://web.whatsapp.com/*" });
+
+  await Promise.all(
+    tabs.map(async (tab) => {
+      if (typeof tab.id !== "number") return;
+
+      try {
+        await chrome.tabs.reload(tab.id);
+      } catch (error) {
+        // Ignore tabs that disappear while reloading.
+      }
+    })
+  );
+}
+
 function clampNumber(value, min, max, fallback) {
   const parsed = Number.parseInt(value, 10);
   if (Number.isNaN(parsed)) return fallback;
@@ -345,7 +361,9 @@ chrome.runtime.onStartup.addListener(() => {
 });
 
 chrome.runtime.onInstalled.addListener(() => {
-  ensureTaskAlarm().catch(() => {});
+  stopTask("Listo.")
+    .then(() => reloadWhatsAppTabs())
+    .catch(() => {});
 });
 
 ensureTaskAlarm().catch(() => {});
