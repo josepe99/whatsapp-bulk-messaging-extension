@@ -2,7 +2,7 @@
 
 let allRows = [];
 let isRunning = false;
-let selectedImageFile = null;
+let selectedImageFiles = [];
 let pendingBackgroundState = null;
 let previewNextContact = null;
 let countdownTimerId = null;
@@ -253,17 +253,17 @@ function injectPanel() {
 
           <div class="wp-media-box">
             <div class="wp-media-head">
-              <span class="wp-card-title">Imagen opcional</span>
-              <span class="wp-card-sub">Se enviara la misma imagen a todos los contactos</span>
+              <span class="wp-card-title">Imágenes opcionales</span>
+              <span class="wp-card-sub">Se enviarán en orden. El texto se envía al final.</span>
             </div>
             <div class="wp-file-row">
               <label class="wp-file-btn" style="cursor:pointer;">
-                Elegir imagen
-                <input type="file" id="wp-image-file" accept="image/*" />
+                + Agregar imágenes
+                <input type="file" id="wp-image-file" accept="image/*" multiple />
               </label>
               <button type="button" id="wp-image-reset" class="wp-file-reset-btn">Limpiar</button>
             </div>
-            <div class="wp-file-name" id="wp-image-info">Sin imagen seleccionada.</div>
+            <div id="wp-image-preview-list"></div>
           </div>
         </section>
 
@@ -488,6 +488,88 @@ function applyPrivacyFilters() {
 
 /* ==== Events ==== */
 
+function renderImagePreviews() {
+  const list = document.getElementById("wp-image-preview-list");
+  if (!list) return;
+
+  list.querySelectorAll(".wp-img-thumb").forEach((img) => {
+    if (img.src?.startsWith("blob:")) URL.revokeObjectURL(img.src);
+  });
+  list.innerHTML = "";
+
+  if (selectedImageFiles.length === 0) {
+    const empty = document.createElement("span");
+    empty.className = "wp-img-empty";
+    empty.textContent = "Sin imágenes seleccionadas.";
+    list.appendChild(empty);
+    return;
+  }
+
+  selectedImageFiles.forEach((file, index) => {
+    const item = document.createElement("div");
+    item.className = "wp-img-preview-item";
+
+    const badge = document.createElement("span");
+    badge.className = "wp-img-order-badge";
+    badge.textContent = String(index + 1);
+
+    const thumb = document.createElement("img");
+    thumb.className = "wp-img-thumb";
+    thumb.src = URL.createObjectURL(file);
+    thumb.alt = file.name;
+
+    const nameEl = document.createElement("span");
+    nameEl.className = "wp-img-name";
+    nameEl.textContent = file.name;
+
+    const controls = document.createElement("div");
+    controls.className = "wp-img-controls";
+
+    const upBtn = document.createElement("button");
+    upBtn.type = "button";
+    upBtn.className = "wp-img-btn";
+    upBtn.title = "Subir";
+    upBtn.textContent = "↑";
+    upBtn.disabled = index === 0;
+    upBtn.onclick = () => {
+      [selectedImageFiles[index - 1], selectedImageFiles[index]] = [selectedImageFiles[index], selectedImageFiles[index - 1]];
+      renderImagePreviews();
+    };
+
+    const downBtn = document.createElement("button");
+    downBtn.type = "button";
+    downBtn.className = "wp-img-btn";
+    downBtn.title = "Bajar";
+    downBtn.textContent = "↓";
+    downBtn.disabled = index === selectedImageFiles.length - 1;
+    downBtn.onclick = () => {
+      [selectedImageFiles[index], selectedImageFiles[index + 1]] = [selectedImageFiles[index + 1], selectedImageFiles[index]];
+      renderImagePreviews();
+    };
+
+    const removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.className = "wp-img-btn wp-img-btn-remove";
+    removeBtn.title = "Eliminar";
+    removeBtn.textContent = "×";
+    removeBtn.onclick = () => {
+      URL.revokeObjectURL(thumb.src);
+      selectedImageFiles.splice(index, 1);
+      renderImagePreviews();
+    };
+
+    controls.appendChild(upBtn);
+    controls.appendChild(downBtn);
+    controls.appendChild(removeBtn);
+
+    item.appendChild(badge);
+    item.appendChild(thumb);
+    item.appendChild(nameEl);
+    item.appendChild(controls);
+    list.appendChild(item);
+  });
+}
+
 function setupEvents() {
   const panel = document.getElementById("wp-custom-panel");
   const headerTrigger = document.getElementById("wp-header-trigger");
@@ -496,7 +578,6 @@ function setupEvents() {
   const fileResetBtn = document.getElementById("wp-file-reset");
   const imageInput = document.getElementById("wp-image-file");
   const imageResetBtn = document.getElementById("wp-image-reset");
-  const imageInfo = document.getElementById("wp-image-info");
   const tagSelect = document.getElementById("wp-tag-select");
   const startBtn = document.getElementById("wp-start");
   const stopBtn = document.getElementById("wp-stop");
@@ -780,24 +861,23 @@ function setupEvents() {
 
   if (imageInput) {
     imageInput.addEventListener("change", (e) => {
-      const file = e.target.files?.[0] || null;
-      selectedImageFile = file;
-      if (imageInfo) {
-        imageInfo.innerText = file
-          ? `🖼 ${file.name}`
-          : "Sin imagen seleccionada.";
-      }
+      const newFiles = Array.from(e.target.files || []);
+      selectedImageFiles = [...selectedImageFiles, ...newFiles];
+      imageInput.value = "";
+      renderImagePreviews();
     });
   }
 
   if (imageResetBtn) {
     imageResetBtn.onclick = (e) => {
       e.stopPropagation();
-      selectedImageFile = null;
+      selectedImageFiles = [];
       if (imageInput) imageInput.value = "";
-      if (imageInfo) imageInfo.innerText = "Sin imagen seleccionada.";
+      renderImagePreviews();
     };
   }
+
+  renderImagePreviews();
 
   // Clear contacts file
   if (fileResetBtn) {
@@ -892,8 +972,8 @@ function setupEvents() {
       if (minInput) minInput.value = String(minMinutes);
       if (maxInput) maxInput.value = String(maxMinutes);
 
-      const imagePayload = selectedImageFile
-        ? await fileToImagePayload(selectedImageFile)
+      const imagePayloads = selectedImageFiles.length > 0
+        ? await Promise.all(selectedImageFiles.map(fileToImagePayload))
         : null;
 
       const response = await sendRuntimeMessage({
@@ -901,7 +981,7 @@ function setupEvents() {
         payload: {
           queue,
           msgTemplates: messages,
-          imagePayload,
+          imagePayloads,
           minTime: minutesToSeconds(minMinutes),
           maxTime: minutesToSeconds(maxMinutes),
           sendButtonSelector:
@@ -955,7 +1035,7 @@ async function processQueueItem(payload) {
     position,
     totalCount,
     selectedTemplate,
-    imagePayload,
+    imagePayloads,
     sendButtonSelector,
     onlyNewContacts
   } = payload || {};
@@ -1018,14 +1098,14 @@ async function processQueueItem(payload) {
         .replace(/{{LastName}}/g, person.soyad)
         .replace(/{{Salutation}}/g, person.hitap || "");
 
-      if (imagePayload?.dataUrl) {
-        const imageFile = imagePayloadToFile(imagePayload);
-        if (imageFile) {
-          setStatus(`Adjuntando imagen (${position}/${totalCount}): ${personLabel}`);
-          const imageSent = await sendImageAttachment(imageFile, selector);
+      if (imagePayloads?.length > 0) {
+        const imageFiles = imagePayloads.map(imagePayloadToFile).filter(Boolean);
+        if (imageFiles.length > 0) {
+          setStatus(`Adjuntando imágenes (${position}/${totalCount}): ${personLabel}`);
+          const imageSent = await sendImagesAttachment(imageFiles, selector);
           if (!imageSent) {
-            console.warn("Image could not be sent for:", personLabel);
-            setStatus(`⚠️ Imagen no enviada, continuando con texto: ${personLabel}`);
+            console.warn("Images could not be sent for:", personLabel);
+            setStatus(`⚠️ Imágenes no enviadas, continuando con texto: ${personLabel}`);
             await sleep(1200);
           }
         }
@@ -1469,6 +1549,23 @@ function setFileInputFile(input, file) {
   }
 }
 
+function setFileInputFiles(input, files) {
+  if (!input || !files?.length) return false;
+
+  try {
+    const dataTransfer = new DataTransfer();
+    for (const file of files) {
+      dataTransfer.items.add(file);
+    }
+    input.files = dataTransfer.files;
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+    return true;
+  } catch (e) {
+    console.error("Could not set media input files:", e);
+    return false;
+  }
+}
+
 function waitForMediaFileInput(timeout = 8000) {
   return new Promise((resolve) => {
     const currentInput = findMediaFileInput();
@@ -1542,7 +1639,7 @@ async function waitForVisibleSendButton(selector, timeout = 10000, options = {})
   });
 }
 
-async function sendImageAttachment(file, sendButtonSelector) {
+async function sendImagesAttachment(files, sendButtonSelector) {
   const attachmentButton = findAttachmentButton();
   if (!attachmentButton) return false;
 
@@ -1552,7 +1649,7 @@ async function sendImageAttachment(file, sendButtonSelector) {
   const mediaInput = await waitForMediaFileInput(8000);
   if (!mediaInput) return false;
 
-  const fileAssigned = setFileInputFile(mediaInput, file);
+  const fileAssigned = setFileInputFiles(mediaInput, files);
   if (!fileAssigned) return false;
 
   await sleep(1500);

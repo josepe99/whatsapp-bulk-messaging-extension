@@ -504,6 +504,91 @@
   gap: 2px;
 }
 
+/* --- IMAGE PREVIEW LIST --- */
+#wp-image-preview-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.wp-img-empty {
+  font-size: 10px;
+  color: var(--wp-text-sec);
+}
+
+.wp-img-preview-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: 8px;
+  background: var(--wp-input-bg);
+}
+
+.wp-img-order-badge {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--wp-text-sec);
+  min-width: 12px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.wp-img-thumb {
+  width: 36px;
+  height: 36px;
+  object-fit: cover;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.wp-img-name {
+  flex: 1;
+  font-size: 10px;
+  color: var(--wp-text-main);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wp-img-controls {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.wp-img-btn {
+  border: none;
+  background: var(--wp-btn-sec-bg);
+  color: var(--wp-btn-sec-text);
+  font-size: 11px;
+  line-height: 1;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: background 0.15s;
+}
+
+.wp-img-btn:hover:not(:disabled) {
+  background: var(--wp-hover-bg);
+}
+
+.wp-img-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.wp-img-btn-remove {
+  color: #e53e3e;
+  font-size: 14px;
+  font-weight: 600;
+}
+
 /* --- ETİKET BUTONLARI --- */
 .wp-tag-container {
   display: flex;

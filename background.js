@@ -128,7 +128,7 @@ function finalizeTask(task, statusMessage) {
     active: false,
     queue: [],
     msgTemplates: [],
-    imagePayload: null,
+    imagePayloads: null,
     nextRunAt: null,
     statusMessage
   };
@@ -193,7 +193,7 @@ async function handleStartSending(payload, sender) {
     currentIndex: 0,
     sentCount: 0,
     msgTemplates,
-    imagePayload: payload?.imagePayload || null,
+    imagePayloads: payload?.imagePayloads || null,
     minTime,
     maxTime,
     breakCount: DEFAULT_BREAK_COUNT,
@@ -273,7 +273,7 @@ async function executeTaskStep() {
         position: task.currentIndex + 1,
         totalCount: task.totalCount,
         selectedTemplate: selectedTemplate.template,
-        imagePayload: task.imagePayload,
+        imagePayloads: task.imagePayloads,
         sendButtonSelector: task.sendButtonSelector,
         onlyNewContacts: task.onlyNewContacts
       }
