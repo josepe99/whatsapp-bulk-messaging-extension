@@ -1506,7 +1506,10 @@ function findAttachmentButton() {
     'button[aria-label="Adjuntar"]',
     'button[aria-label="Anexar"]',
     '[data-icon="plus-rounded"]',
-    '[data-icon="clip"]'
+    '[data-icon="clip"]',
+    '[data-icon="attach-menu-plus"]',
+    '[data-testid="clip"]',
+    '[data-testid="attach-menu"]'
   ];
 
   for (const selector of selectors) {
@@ -1518,20 +1521,51 @@ function findAttachmentButton() {
     }
   }
 
+  // Fallback: buscar en el footer un botón cuyo aria-label/title mencione adjuntar
+  const footerCandidates = document.querySelectorAll('footer button, footer [role="button"]');
+  for (const btn of footerCandidates) {
+    const label = (btn.getAttribute("aria-label") || btn.getAttribute("title") || "").toLowerCase();
+    if ((label.includes("attach") || label.includes("adjun") || label.includes("anexar")) && isVisibleElement(btn)) {
+      return btn;
+    }
+  }
+
   return null;
 }
 
 function findMediaFileInput() {
   const inputs = Array.from(document.querySelectorAll('input[type="file"]'));
-  return (
-    inputs.find((input) => {
-      if (input.id === "wp-image-file" || input.closest("#wp-custom-panel")) {
-        return false;
-      }
-      const accept = (input.getAttribute("accept") || "").toLowerCase();
-      return accept.includes("image");
-    }) || null
-  );
+  const ours = (input) => input.id === "wp-image-file" || input.id === "wp-file" || input.closest("#wp-custom-panel");
+
+  // El input de "Fotos y videos" de WA siempre acepta video; el de stickers no.
+  // Preferir el que tenga "video" para evitar mandar como sticker.
+  const byVideo = inputs.find((input) => {
+    if (ours(input)) return false;
+    return (input.getAttribute("accept") || "").toLowerCase().includes("video");
+  });
+  if (byVideo) return byVideo;
+
+  // Segunda pasada: image/* (wildcard) — descarta "image/webp" (stickers)
+  const byWildcard = inputs.find((input) => {
+    if (ours(input)) return false;
+    return (input.getAttribute("accept") || "").toLowerCase().includes("image/*");
+  });
+  if (byWildcard) return byWildcard;
+
+  // Tercera pasada: image pero NO solo webp
+  const byImageNotWebp = inputs.find((input) => {
+    if (ours(input)) return false;
+    const accept = (input.getAttribute("accept") || "").toLowerCase();
+    return accept.includes("image") && accept !== "image/webp" && !accept.match(/^image\/webp[,;]?\s*$/);
+  });
+  if (byImageNotWebp) return byImageNotWebp;
+
+  // Fallback: cualquier input que no sea el nuestro y no parezca de documentos/stickers
+  return inputs.find((input) => {
+    if (ours(input)) return false;
+    const accept = (input.getAttribute("accept") || "").toLowerCase();
+    return !accept.includes(".pdf") && !accept.includes("application/") && accept !== "image/webp";
+  }) || null;
 }
 
 function setFileInputFile(input, file) {
@@ -1641,10 +1675,10 @@ async function waitForVisibleSendButton(selector, timeout = 10000, options = {})
 
 async function sendImagesAttachment(files, sendButtonSelector) {
   const attachmentButton = findAttachmentButton();
-  if (!attachmentButton) return false;
-
-  attachmentButton.click();
-  await sleep(250);
+  if (attachmentButton) {
+    attachmentButton.click();
+    await sleep(400);
+  }
 
   const mediaInput = await waitForMediaFileInput(8000);
   if (!mediaInput) return false;
@@ -1652,15 +1686,16 @@ async function sendImagesAttachment(files, sendButtonSelector) {
   const fileAssigned = setFileInputFiles(mediaInput, files);
   if (!fileAssigned) return false;
 
-  await sleep(1500);
+  await sleep(2000);
 
-  const mediaSendBtn = await waitForVisibleSendButton(sendButtonSelector, 10000, {
-    excludeFooter: true
-  });
+  // Cuando el preview de media está abierto el footer del chat se oculta,
+  // por lo que el único botón de envío visible es el del preview.
+  // ponytail: sin excludeFooter — WA nuevo puede poner el botón del preview dentro de un <footer>
+  const mediaSendBtn = await waitForVisibleSendButton(sendButtonSelector, 12000, {});
   if (!mediaSendBtn) return false;
 
   mediaSendBtn.click();
-  await sleep(2500);
+  await sleep(3000);
   return true;
 }
 
