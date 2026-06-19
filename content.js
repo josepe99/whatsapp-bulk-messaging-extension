@@ -1534,38 +1534,35 @@ function findAttachmentButton() {
 }
 
 function findMediaFileInput() {
-  const inputs = Array.from(document.querySelectorAll('input[type="file"]'));
-  const ours = (input) => input.id === "wp-image-file" || input.id === "wp-file" || input.closest("#wp-custom-panel");
+  const ours = (input) =>
+    input.id === "wp-image-file" || input.id === "wp-file" || input.closest("#wp-custom-panel");
 
-  // El input de "Fotos y videos" de WA siempre acepta video; el de stickers no.
-  // Preferir el que tenga "video" para evitar mandar como sticker.
-  const byVideo = inputs.find((input) => {
-    if (ours(input)) return false;
-    return (input.getAttribute("accept") || "").toLowerCase().includes("video");
-  });
-  if (byVideo) return byVideo;
+  // Excluir inputs del ítem "Sticker" del menú. Sin fallback a parentElement:
+  // si no hay li/listitem/menuitem, no excluir — el parentElement puede ser el menú entero.
+  const isInStickerContainer = (input) => {
+    const container =
+      input.closest("li") ||
+      input.closest('[role="listitem"]') ||
+      input.closest('[role="menuitem"]');
+    if (!container) return false;
+    return !!(
+      container.querySelector('[data-icon="sticker"]') ||
+      container.textContent.toLowerCase().includes("sticker")
+    );
+  };
 
-  // Segunda pasada: image/* (wildcard) — descarta "image/webp" (stickers)
-  const byWildcard = inputs.find((input) => {
-    if (ours(input)) return false;
-    return (input.getAttribute("accept") || "").toLowerCase().includes("image/*");
-  });
-  if (byWildcard) return byWildcard;
+  const candidates = Array.from(document.querySelectorAll('input[type="file"]')).filter(
+    (input) => !ours(input) && !isInStickerContainer(input)
+  );
 
-  // Tercera pasada: image pero NO solo webp
-  const byImageNotWebp = inputs.find((input) => {
-    if (ours(input)) return false;
-    const accept = (input.getAttribute("accept") || "").toLowerCase();
-    return accept.includes("image") && accept !== "image/webp" && !accept.match(/^image\/webp[,;]?\s*$/);
-  });
-  if (byImageNotWebp) return byImageNotWebp;
-
-  // Fallback: cualquier input que no sea el nuestro y no parezca de documentos/stickers
-  return inputs.find((input) => {
-    if (ours(input)) return false;
-    const accept = (input.getAttribute("accept") || "").toLowerCase();
-    return !accept.includes(".pdf") && !accept.includes("application/") && accept !== "image/webp";
-  }) || null;
+  // Entre los candidatos no-sticker: preferir el que acepta video (Photos & Videos de WA)
+  return (
+    candidates.find((i) => (i.getAttribute("accept") || "").toLowerCase().includes("video")) ||
+    candidates.find((i) => (i.getAttribute("accept") || "").toLowerCase().includes("image/*")) ||
+    candidates.find((i) => (i.getAttribute("accept") || "").toLowerCase().includes("image")) ||
+    candidates[0] ||
+    null
+  );
 }
 
 function setFileInputFile(input, file) {
@@ -1591,8 +1588,10 @@ function setFileInputFiles(input, files) {
     for (const file of files) {
       dataTransfer.items.add(file);
     }
-    input.files = dataTransfer.files;
-    input.dispatchEvent(new Event("change", { bubbles: true }));
+    // ponytail: native setter bypasses React's synthetic file-property tracking
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'files').set.call(input, dataTransfer.files);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
     return true;
   } catch (e) {
     console.error("Could not set media input files:", e);
@@ -1673,30 +1672,133 @@ async function waitForVisibleSendButton(selector, timeout = 10000, options = {})
   });
 }
 
-async function sendImagesAttachment(files, sendButtonSelector) {
-  const attachmentButton = findAttachmentButton();
-  if (attachmentButton) {
-    attachmentButton.click();
-    await sleep(400);
+function findPhotosMenuItem() {
+  const photoTerms = ['photo', 'video', 'foto', 'imagen', 'image', 'galería', 'gallery', 'media'];
+  const excludeTerms = ['sticker', 'gif', 'document', 'documento', 'contact', 'contacto', 'location', 'ubicación', 'audio', 'poll', 'encuesta'];
+
+  for (const item of document.querySelectorAll('li, [role="menuitem"], [role="option"]')) {
+    if (!isVisibleElement(item)) continue;
+    const text = (item.textContent || '').toLowerCase();
+    if (photoTerms.some(t => text.includes(t)) && !excludeTerms.some(t => text.includes(t))) {
+      return item;
+    }
+  }
+  return null;
+}
+
+async function sendImagesViaDrop(files, sendButtonSelector) {
+  const dropTarget = document.querySelector('#main footer') || document.getElementById('main');
+  if (!dropTarget) return false;
+
+  const dt = new DataTransfer();
+  for (const f of files) dt.items.add(f);
+
+  try {
+    for (const type of ['dragenter', 'dragover', 'drop']) {
+      dropTarget.dispatchEvent(new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: dt }));
+    }
+  } catch (e) {
+    console.warn('[WP] Drop fallback failed:', e);
+    return false;
   }
 
-  const mediaInput = await waitForMediaFileInput(8000);
-  if (!mediaInput) return false;
+  await sleep(2000);
+  const btn = await waitForVisibleSendButton(sendButtonSelector, 10000, {});
+  if (!btn) return false;
+  btn.click();
+  await sleep(3000);
+  return true;
+}
+
+function findPhotosFileInput() {
+  const waInputs = Array.from(document.querySelectorAll('input[type="file"]'))
+    .filter(i => i.id !== 'wp-image-file' && i.id !== 'wp-file' && !i.closest('#wp-custom-panel'));
+
+  if (!waInputs.length) return null;
+
+  // Photos & Videos: accept="image/*,video/mp4,..." — always has image/* wildcard
+  // Sticker:         accept="image/webp,image/png,video/webm" — specific types, never image/*
+  return (
+    waInputs.find(i => (i.getAttribute('accept') || '').includes('image/*')) ||
+    waInputs.find(i => (i.getAttribute('accept') || '').toLowerCase().includes('video/mp4')) ||
+    waInputs.find(i => (i.getAttribute('accept') || '').toLowerCase().includes('image/')) ||
+    waInputs[0] ||
+    null
+  );
+}
+
+function waitForPhotosFileInput(timeout = 6000) {
+  return new Promise(resolve => {
+    const current = findPhotosFileInput();
+    if (current) return resolve(current);
+
+    const observer = new MutationObserver(() => {
+      const input = findPhotosFileInput();
+      if (input) { observer.disconnect(); resolve(input); }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    setTimeout(() => { observer.disconnect(); resolve(null); }, timeout);
+  });
+}
+
+async function sendImagesAttachment(files, sendButtonSelector) {
+  // Drag-and-drop always opens the Photos & Videos preview, never sticker
+  const dropped = await tryDrop(files);
+  if (dropped) {
+    await sleep(1500);
+    // ponytail: excludeFooter so we only match the media-preview send button, not the text one
+    const mediaSendBtn = await waitForVisibleSendButton(sendButtonSelector, 3000, { excludeFooter: true });
+    if (mediaSendBtn) {
+      mediaSendBtn.click();
+      await sleep(3000);
+      return true;
+    }
+    // Drop didn't open a preview (WA ignores synthetic drag events) — fall through to file input
+  }
+
+  // Fallback: file input (click attach button first to open the menu)
+  const attachmentButton = findAttachmentButton();
+  console.log('[WP] attachmentButton found:', !!attachmentButton, attachmentButton?.title || attachmentButton?.getAttribute('aria-label') || attachmentButton?.getAttribute('data-icon') || attachmentButton?.getAttribute('data-testid'));
+  if (attachmentButton) {
+    attachmentButton.click();
+    await sleep(600);
+  }
+
+  let mediaInput = findPhotosFileInput();
+  console.log('[WP] mediaInput (immediate):', !!mediaInput, mediaInput?.accept);
+  if (!mediaInput) {
+    mediaInput = await waitForPhotosFileInput(6000);
+    console.log('[WP] mediaInput (after wait):', !!mediaInput, mediaInput?.accept);
+  }
+  if (!mediaInput) { console.warn('[WP] no media file input found'); return false; }
 
   const fileAssigned = setFileInputFiles(mediaInput, files);
+  console.log('[WP] fileAssigned:', fileAssigned, 'files count:', files.length);
   if (!fileAssigned) return false;
 
   await sleep(2000);
-
-  // Cuando el preview de media está abierto el footer del chat se oculta,
-  // por lo que el único botón de envío visible es el del preview.
-  // ponytail: sin excludeFooter — WA nuevo puede poner el botón del preview dentro de un <footer>
   const mediaSendBtn = await waitForVisibleSendButton(sendButtonSelector, 12000, {});
+  console.log('[WP] mediaSendBtn after file assign:', !!mediaSendBtn);
   if (!mediaSendBtn) return false;
 
   mediaSendBtn.click();
   await sleep(3000);
   return true;
+}
+
+function tryDrop(files) {
+  const target = document.querySelector('#main') || document.querySelector('[data-tab="8"]');
+  if (!target) return Promise.resolve(false);
+  try {
+    const dt = new DataTransfer();
+    for (const f of files) dt.items.add(f);
+    target.dispatchEvent(new DragEvent('dragenter', { bubbles: true, cancelable: true, dataTransfer: dt }));
+    target.dispatchEvent(new DragEvent('dragover',  { bubbles: true, cancelable: true, dataTransfer: dt }));
+    target.dispatchEvent(new DragEvent('drop',      { bubbles: true, cancelable: true, dataTransfer: dt }));
+    return Promise.resolve(true);
+  } catch (e) {
+    return Promise.resolve(false);
+  }
 }
 
 function sendRuntimeMessage(message) {
